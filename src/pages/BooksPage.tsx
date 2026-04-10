@@ -34,12 +34,19 @@ interface BookData {
 }
 
 const GOALS_KEY = "scriptorium_book_goals";
+const ORDER_KEY = "scriptorium_book_order";
 
 function loadGoals(): Record<number, number> {
   try { return JSON.parse(localStorage.getItem(GOALS_KEY) || "{}"); } catch { return {}; }
 }
 function saveGoalsToStorage(g: Record<number, number>) {
   localStorage.setItem(GOALS_KEY, JSON.stringify(g));
+}
+function loadOrder(): number[] {
+  try { return JSON.parse(localStorage.getItem(ORDER_KEY) || "[]"); } catch { return {}; }
+}
+function saveOrder(ids: number[]) {
+  localStorage.setItem(ORDER_KEY, JSON.stringify(ids));
 }
 
 const SHEETS_PER_CHARS = 40000; // 1 авт. лист = 40 000 знаков с пробелами
@@ -67,11 +74,41 @@ export default function BooksPage() {
   const [bookGoals, setBookGoals] = useState<Record<number, number>>(loadGoals);
   const [editingGoal, setEditingGoal] = useState<number | null>(null);
   const [goalDraft, setGoalDraft] = useState("");
+  const [bookOrder, setBookOrder] = useState<number[]>(loadOrder);
+  const [dragOver, setDragOver] = useState<number | null>(null);
 
   const setGoal = (bookId: number, chars: number) => {
     const updated = { ...bookGoals, [bookId]: chars };
     setBookGoals(updated);
     saveGoalsToStorage(updated);
+  };
+
+  const getSortedBooks = (rawBooks: typeof books) => {
+    const visible = rawBooks.filter((b) => b.title !== '[удалено]');
+    if (bookOrder.length === 0) return visible;
+    const ordered = bookOrder.map((id) => visible.find((b) => b.id === id)).filter(Boolean) as typeof visible;
+    const rest = visible.filter((b) => !bookOrder.includes(b.id));
+    return [...ordered, ...rest];
+  };
+
+  const handleDragStart = (e: React.DragEvent, id: number) => {
+    e.dataTransfer.setData("bookId", String(id));
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: number) => {
+    e.preventDefault();
+    const draggedId = parseInt(e.dataTransfer.getData("bookId"), 10);
+    if (draggedId === targetId) return;
+    const sorted = getSortedBooks(books);
+    const ids = sorted.map((b) => b.id);
+    const fromIdx = ids.indexOf(draggedId);
+    const toIdx = ids.indexOf(targetId);
+    ids.splice(fromIdx, 1);
+    ids.splice(toIdx, 0, draggedId);
+    setBookOrder(ids);
+    saveOrder(ids);
+    setDragOver(null);
   };
 
   const openBook = async (id: number) => {
@@ -158,14 +195,21 @@ export default function BooksPage() {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-5">
-          {books.filter((b) => b.title !== '[удалено]').map((book) => {
+          {getSortedBooks(books).map((book) => {
             const chars = book.words;
             const goal = bookGoals[book.id];
             const pct = goal ? Math.min(100, Math.round((chars / goal) * 100)) : null;
+            const isOver = dragOver === book.id;
             return (
-              <div key={book.id} className="group p-6 rounded-xl border border-border bg-card hover-lift transition-all">
+              <div key={book.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, book.id)}
+                onDragOver={(e) => { e.preventDefault(); setDragOver(book.id); }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={(e) => handleDrop(e, book.id)}
+                className={`group p-6 rounded-xl border bg-card hover-lift transition-all ${isOver ? "border-violet scale-[1.01]" : "border-border"}`}>
                 <div className="flex items-start gap-4">
-                  <div className="w-10 h-14 rounded-md flex-shrink-0 flex items-center justify-center"
+                  <div className="w-10 h-14 rounded-md flex-shrink-0 flex items-center justify-center cursor-grab active:cursor-grabbing"
                     style={{ background: 'hsl(var(--violet-light))' }}>
                     <span className="text-violet text-lg">✦</span>
                   </div>
