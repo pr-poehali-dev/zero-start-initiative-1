@@ -325,18 +325,13 @@ export default function ManuscriptTab({ initialText, onSave }: { initialText: st
                     className="px-2.5 py-1.5 rounded underline text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                     style={{ fontFamily: '"Times New Roman", serif' }}>Ч</button>
                   <div className="w-px h-4 bg-border mx-1" />
-                  <button onClick={() => execCmd("formatBlock", "h2")} title="Заголовок"
-                    className="px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
-                    Заголовок
+                  <button onClick={() => execCmd("insertHTML", "<p>* * *</p>")} title="Разделитель сцены"
+                    className="px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora tracking-widest">
+                    * * *
                   </button>
-                  <button onClick={() => execCmd("formatBlock", "p")} title="Абзац"
+                  <button onClick={() => execCmd("insertHTML", "<p>— </p>")} title="Тире для диалога"
                     className="px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
-                    Абзац
-                  </button>
-                  <div className="w-px h-4 bg-border mx-1" />
-                  <button onClick={() => execCmd("insertHorizontalRule")} title="Разделитель"
-                    className="px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
-                    — — —
+                    —
                   </button>
                   <div className="ml-auto flex items-center gap-2">
                     <span className="font-lora text-[11px] text-muted-foreground">
