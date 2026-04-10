@@ -344,6 +344,19 @@ def handler(event: dict, context) -> dict:
                 return {'statusCode': 404, 'headers': CORS, 'body': {'error': 'Книга не найдена'}}
             return {'statusCode': 200, 'headers': CORS, 'body': {'book': {'id': row[0], 'title': row[1], 'genre': row[2], 'words': row[3]}}}
 
+        # ── recount ── пересчёт знаков для всех книг пользователя
+        if action == 'recount':
+            cur.execute("SELECT id, manuscript FROM books WHERE user_id=%s AND title != '[удалено]'", (user_id,))
+            rows = cur.fetchall()
+            for row in rows:
+                book_id, manuscript = row
+                chars = count_chars(manuscript or '')
+                cur.execute("UPDATE books SET words=%s WHERE id=%s AND user_id=%s", (chars, book_id, user_id))
+            conn.commit()
+            cur.execute("SELECT id, title, words FROM books WHERE user_id=%s AND title != '[удалено]'", (user_id,))
+            updated = [{'id': r[0], 'title': r[1], 'chars': r[2]} for r in cur.fetchall()]
+            return {'statusCode': 200, 'headers': CORS, 'body': {'updated': updated}}
+
         # ── delete ──
         if action == 'delete':
             book_id = body.get('book_id')

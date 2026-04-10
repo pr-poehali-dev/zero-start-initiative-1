@@ -74,5 +74,10 @@ export function useBooks() {
     return data.book || null;
   };
 
-  return { books, loading, loadBooks, createBook, updateBook, deleteBook, getBook };
+  const recountBooks = async () => {
+    await apiFetch({ action: "recount" });
+    await loadBooks();
+  };
+
+  return { books, loading, loadBooks, createBook, updateBook, deleteBook, getBook, recountBooks };
 }

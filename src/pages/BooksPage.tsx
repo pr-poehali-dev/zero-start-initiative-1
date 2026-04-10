@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { useBooks, BookMeta, BookFull } from "@/hooks/useBooks";
 import ManuscriptTab from "@/components/book/ManuscriptTab";
@@ -38,8 +38,20 @@ function saveGoalsToStorage(g: Record<number, number>) {
   localStorage.setItem(GOALS_KEY, JSON.stringify(g));
 }
 
+const SHEETS_PER_CHARS = 40000; // 1 авт. лист = 40 000 знаков с пробелами
+const toSheets = (chars: number) => (chars / SHEETS_PER_CHARS).toFixed(1);
+
 export default function BooksPage() {
-  const { books, loading, createBook: apiCreate, updateBook, deleteBook, getBook } = useBooks();
+  const { books, loading, createBook: apiCreate, updateBook, deleteBook, getBook, recountBooks } = useBooks();
+
+  // Пересчёт при первом открытии (один раз на сессию)
+  useEffect(() => {
+    const key = "scriptorium_recounted";
+    if (!sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, "1");
+      recountBooks();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [selectedBook, setSelectedBook] = useState<number | null>(null);
   const [selectedBookFull, setSelectedBookFull] = useState<BookFull | null>(null);
   const [loadingBook, setLoadingBook] = useState(false);
@@ -156,8 +168,10 @@ export default function BooksPage() {
                     <h3 className="font-cormorant text-xl font-medium group-hover:text-violet transition-colors">{book.title}</h3>
                     <p className="font-lora text-xs text-muted-foreground mt-0.5 mb-3">{book.genre || "Жанр не указан"}</p>
 
-                    <div className="flex gap-3 mb-2">
-                      <span className="font-lora text-xs text-muted-foreground">{book.words.toLocaleString("ru")} знаков</span>
+                    <div className="flex gap-3 mb-2 flex-wrap">
+                      <span className="font-lora text-xs text-muted-foreground">{book.words.toLocaleString("ru")} зн.</span>
+                      <span className="font-lora text-xs text-muted-foreground">·</span>
+                      <span className="font-lora text-xs text-muted-foreground">{toSheets(book.words)} авт. л.</span>
                     </div>
 
                     {pct !== null ? (
@@ -389,7 +403,8 @@ function BookDetail({
                 <div className="space-y-0.5">
                   <p className="font-lora text-xs text-muted-foreground">Текущий объём</p>
                   <p className="font-lora text-sm font-medium">
-                    {book.words.toLocaleString("ru")} знаков (с пробелами)
+                    {book.words.toLocaleString("ru")} зн.
+                    <span className="text-muted-foreground font-normal ml-2">· {toSheets(book.words)} авт. л.</span>
                   </p>
                 </div>
                 <div className="text-right space-y-0.5">

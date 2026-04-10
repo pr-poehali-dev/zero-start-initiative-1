@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useBooks } from "@/hooks/useBooks";
 import Icon from "@/components/ui/icon";
 
+const SHEETS_PER_CHARS = 40000;
+const toSheets = (chars: number) => (chars / SHEETS_PER_CHARS).toFixed(1);
+
 const WEEK_DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const MONTHS_RU = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
 const MONTHS_FULL = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
@@ -143,18 +146,24 @@ export default function StatsPage() {
       {/* ── ALL-TIME TOTALS ── */}
       <div className="p-6 rounded-xl border border-border bg-card">
         <p className="font-cormorant text-base italic text-muted-foreground mb-4">Всего написано за всё время</p>
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="p-4 rounded-xl bg-muted/30 text-center">
-            <div className="font-cormorant text-4xl font-light text-violet leading-none mb-1">
-              {totalWords.toLocaleString("ru")}
-            </div>
-            <div className="font-lora text-xs text-muted-foreground">слов</div>
-          </div>
+        <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="p-4 rounded-xl bg-muted/30 text-center">
             <div className="font-cormorant text-4xl font-light text-violet leading-none mb-1">
               {totalChars.toLocaleString("ru")}
             </div>
-            <div className="font-lora text-xs text-muted-foreground">знаков (с пробелами)</div>
+            <div className="font-lora text-xs text-muted-foreground">знаков с пробелами</div>
+          </div>
+          <div className="p-4 rounded-xl bg-muted/30 text-center">
+            <div className="font-cormorant text-4xl font-light text-violet leading-none mb-1">
+              {totalWords.toLocaleString("ru")}
+            </div>
+            <div className="font-lora text-xs text-muted-foreground">слов (прибл.)</div>
+          </div>
+          <div className="p-4 rounded-xl bg-muted/30 text-center">
+            <div className="font-cormorant text-4xl font-light text-violet leading-none mb-1">
+              {toSheets(totalChars)}
+            </div>
+            <div className="font-lora text-xs text-muted-foreground">авт. листов</div>
           </div>
         </div>
 
@@ -180,7 +189,7 @@ export default function StatsPage() {
 
                 <div className="flex justify-between font-lora text-xs mb-1">
                   <span className="text-muted-foreground">{chars.toLocaleString("ru")} зн.</span>
-                  <span style={{ color }}>~{charsToWords(chars).toLocaleString("ru")} сл.</span>
+                  <span style={{ color }}>{toSheets(chars)} авт. л.</span>
                 </div>
 
                 {pct === null && (

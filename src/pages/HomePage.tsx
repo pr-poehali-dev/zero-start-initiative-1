@@ -119,13 +119,13 @@ export default function HomePage({ onNavigate }: Props) {
             <div className="font-cormorant text-3xl font-light text-violet leading-none">
               {totalChars.toLocaleString("ru")}
             </div>
-            <div className="font-lora text-xs text-muted-foreground mt-1">знаков во всех книгах</div>
+            <div className="font-lora text-xs text-muted-foreground mt-1">знаков с пробелами</div>
           </div>
           <div className="text-right">
             <div className="font-cormorant text-2xl font-light text-violet/70 leading-none">
-              {Math.round(totalChars / 6).toLocaleString("ru")}
+              {(totalChars / 40000).toFixed(1)}
             </div>
-            <div className="font-lora text-xs text-muted-foreground mt-1">слов (примерно)</div>
+            <div className="font-lora text-xs text-muted-foreground mt-1">авт. листов</div>
           </div>
         </button>
 
