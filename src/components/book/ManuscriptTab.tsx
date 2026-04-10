@@ -7,25 +7,9 @@ interface ManuscriptChapter {
   content: string;
 }
 
-function parseInitialChapters(raw: string): ManuscriptChapter[] {
-  if (!raw || !raw.trim()) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0 && "title" in parsed[0]) {
-      // Если content содержит HTML — конвертируем в plain text
-      return parsed.map((ch: ManuscriptChapter) => ({
-        ...ch,
-        content: htmlToPlain(ch.content),
-      }));
-    }
-  } catch (_e) { /* not JSON */ }
-  return [{ id: 1, title: "Глава 1", content: raw }];
-}
-
+// Конвертация HTML → plain text (для старых данных с contentEditable)
 function htmlToPlain(html: string): string {
-  if (!html) return "";
-  // Если нет HTML-тегов — возвращаем как есть
-  if (!/<[a-z][\s\S]*>/i.test(html)) return html;
+  if (!html || !/<[a-z][\s\S]*>/i.test(html)) return html;
   const div = document.createElement("div");
   div.innerHTML = html
     .replace(/<br\s*\/?>/gi, "\n")
@@ -33,11 +17,34 @@ function htmlToPlain(html: string): string {
     .replace(/<\/div>/gi, "\n")
     .replace(/<\/h[1-6]>/gi, "\n")
     .replace(/<hr[^>]*>/gi, "\n---\n");
-  return div.textContent?.replace(/\n{3,}/g, "\n\n").trim() ?? "";
+  return (div.textContent ?? "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function parseInitialChapters(raw: string): ManuscriptChapter[] {
+  if (!raw || !raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0 && "title" in parsed[0]) {
+      return parsed.map((ch: ManuscriptChapter) => ({
+        ...ch,
+        content: htmlToPlain(ch.content),
+      }));
+    }
+  } catch (_e) { /* not JSON */ }
+  return [{ id: 1, title: "Глава 1", content: htmlToPlain(raw) }];
 }
 
 function serializeChapters(chs: ManuscriptChapter[]): string {
   return JSON.stringify(chs);
+}
+
+// Вставить текст в позицию курсора textarea
+function insertAtCursor(el: HTMLTextAreaElement, before: string, after = "") {
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  const sel = el.value.substring(start, end);
+  const newVal = el.value.substring(0, start) + before + sel + after + el.value.substring(end);
+  return { value: newVal, cursor: start + before.length + sel.length + after.length };
 }
 
 export default function ManuscriptTab({ initialText, onSave, bookId }: { initialText: string; onSave: (t: string) => void; bookId: number }) {
@@ -64,19 +71,10 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Фокус на textarea при смене главы
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  }, [activeChId]);
-
   const activeCh = chapters.find((c) => c.id === activeChId) ?? null;
   const fullText = chapters.map((c) => `${c.title}\n\n${c.content}`).join("\n\n---\n\n");
 
-  const saveChapters = (updated: ManuscriptChapter[]) => {
-    onSave(serializeChapters(updated));
-  };
+  const saveChapters = (updated: ManuscriptChapter[]) => onSave(serializeChapters(updated));
 
   const updateChContent = (id: number, content: string) => {
     const updated = chapters.map((c) => c.id === id ? { ...c, content } : c);
@@ -93,11 +91,8 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
   };
 
   const addChapter = () => {
-    const chapterNums = chapters
-      .map((c) => c.title.match(/^Глава\s+(\d+)/i))
-      .filter(Boolean)
-      .map((m) => parseInt(m![1]));
-    const nextNum = chapterNums.length > 0 ? Math.max(...chapterNums) + 1 : 1;
+    const nums = chapters.map((c) => c.title.match(/^Глава\s+(\d+)/i)).filter(Boolean).map((m) => parseInt(m![1]));
+    const nextNum = nums.length > 0 ? Math.max(...nums) + 1 : 1;
     const newCh: ManuscriptChapter = { id: Date.now(), title: `Глава ${nextNum}`, content: "" };
     const updated = [...chapters, newCh];
     setChapters(updated);
@@ -120,6 +115,23 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
     [arr[idx], arr[next]] = [arr[next], arr[idx]];
     setChapters(arr);
     saveChapters(arr);
+  };
+
+  // Форматирование textarea через оборачивание выделенного текста
+  const wrapSelection = (before: string, after = before) => {
+    const el = textareaRef.current;
+    if (!el || !activeCh) return;
+    const { value, cursor } = insertAtCursor(el, before, after);
+    updateChContent(activeCh.id, value);
+    setTimeout(() => { el.focus(); el.selectionStart = el.selectionEnd = cursor; }, 0);
+  };
+
+  const insertText = (text: string) => {
+    const el = textareaRef.current;
+    if (!el || !activeCh) return;
+    const { value, cursor } = insertAtCursor(el, text);
+    updateChContent(activeCh.id, value);
+    setTimeout(() => { el.focus(); el.selectionStart = el.selectionEnd = cursor; }, 0);
   };
 
   const totalWords = chapters.reduce((s, c) => s + c.content.trim().split(/\s+/).filter(Boolean).length, 0);
@@ -157,21 +169,18 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
 
       {view === "chapters" && (
         <div className="space-y-3">
-          {/* Mobile: dropdown chapter selector */}
+          {/* Mobile dropdown */}
           <div className="md:hidden" ref={mobileDropRef}>
             <div className="relative">
-              <button
-                onClick={() => setMobileChOpen((v) => !v)}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-card font-lora text-sm"
-              >
+              <button onClick={() => setMobileChOpen((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-card font-lora text-sm">
                 <span className="truncate">{activeCh ? activeCh.title : "Выберите главу"}</span>
                 <Icon name={mobileChOpen ? "ChevronUp" : "ChevronDown"} size={15} className="text-muted-foreground flex-shrink-0 ml-2" />
               </button>
               {mobileChOpen && (
                 <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border border-border bg-card shadow-lg z-20 overflow-hidden">
                   {chapters.map((ch) => (
-                    <button key={ch.id}
-                      onClick={() => { setActiveChId(ch.id); setMobileChOpen(false); }}
+                    <button key={ch.id} onClick={() => { setActiveChId(ch.id); setMobileChOpen(false); }}
                       className={`w-full flex items-center justify-between px-4 py-3 text-left font-lora text-sm transition-colors ${activeChId === ch.id ? "bg-violet/10 text-violet" : "hover:bg-muted/40"}`}>
                       <span className="truncate">{ch.title}</span>
                       {activeChId === ch.id && <Icon name="Check" size={13} className="text-violet flex-shrink-0 ml-2" />}
@@ -188,7 +197,7 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
           </div>
 
           <div className="flex gap-4 min-h-[560px]">
-            {/* Desktop: sidebar */}
+            {/* Desktop sidebar */}
             <div className="hidden md:block w-48 flex-shrink-0 space-y-1">
               {chapters.map((ch, idx) => (
                 <div key={ch.id}
@@ -254,13 +263,31 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
             {activeCh && (
               <div className="flex-1 flex flex-col rounded-xl border border-border overflow-hidden bg-card min-w-0">
                 {/* Toolbar */}
-                <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/20 flex-wrap">
-                  <span className="font-lora text-[11px] text-muted-foreground">
-                    {activeCh.content.trim().split(/\s+/).filter(Boolean).length.toLocaleString("ru")} сл.
-                  </span>
+                <div className="flex items-center gap-0.5 px-3 py-2 border-b border-border bg-muted/20 flex-wrap">
+                  <button onClick={() => wrapSelection("**")} title="Жирный"
+                    className="px-2.5 py-1.5 rounded font-bold text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    style={{ fontFamily: '"Times New Roman", serif' }}>Ж</button>
+                  <button onClick={() => wrapSelection("_")} title="Курсив"
+                    className="px-2.5 py-1.5 rounded italic text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    style={{ fontFamily: '"Times New Roman", serif' }}>К</button>
+                  <button onClick={() => wrapSelection("__")} title="Подчёркнутый"
+                    className="px-2.5 py-1.5 rounded underline text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    style={{ fontFamily: '"Times New Roman", serif' }}>Ч</button>
+                  <div className="w-px h-4 bg-border mx-1" />
+                  <button onClick={() => insertText("\n— ")} title="Диалог (тире)"
+                    className="px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
+                    —
+                  </button>
+                  <button onClick={() => insertText("\n\n* * *\n\n")} title="Разделитель сцены"
+                    className="px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
+                    * * *
+                  </button>
+                  <div className="w-px h-4 bg-border mx-1" />
                   <div className="ml-auto flex items-center gap-2">
-                    <button
-                      onClick={() => downloadText(activeCh.content, `${activeCh.title}.txt`)}
+                    <span className="font-lora text-[11px] text-muted-foreground">
+                      {activeCh.content.trim().split(/\s+/).filter(Boolean).length.toLocaleString("ru")} сл.
+                    </span>
+                    <button onClick={() => downloadText(activeCh.content, `${activeCh.title}.txt`)}
                       className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors">
                       <Icon name="Download" size={13} />
                       Скачать главу
@@ -268,23 +295,31 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
                   </div>
                 </div>
 
-                {/* Textarea — plain text, абзацы через Enter */}
+                {/* Textarea */}
                 <textarea
                   ref={textareaRef}
                   value={activeCh.content}
                   onChange={(e) => updateChContent(activeCh.id, e.target.value)}
                   dir="ltr"
-                  className="flex-1 resize-none focus:outline-none scroll-custom px-8 py-8 md:px-12 md:py-8"
+                  spellCheck
+                  className="flex-1 resize-none focus:outline-none scroll-custom"
                   style={{
                     fontFamily: '"Times New Roman", Times, serif',
                     fontSize: '14pt',
                     lineHeight: '1.8',
                     minHeight: '420px',
                     background: 'transparent',
+                    padding: '2rem 3rem',
                     direction: 'ltr',
-                    unicodeBidi: 'plaintext',
                   }}
                   placeholder="Начните писать..."
+                  onKeyDown={(e) => {
+                    // Ctrl+B/I/U
+                    if (e.ctrlKey || e.metaKey) {
+                      if (e.key === "b") { e.preventDefault(); wrapSelection("**"); }
+                      if (e.key === "i") { e.preventDefault(); wrapSelection("_"); }
+                    }
+                  }}
                 />
 
                 <div className="px-5 py-2 border-t border-border bg-muted/20 flex gap-4">
@@ -322,7 +357,7 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
               <p className="font-lora text-sm text-muted-foreground italic">Добавьте главы во вкладке «По главам»</p>
             </div>
           ) : (
-            <div className="px-8 md:px-12 py-8 scroll-custom overflow-y-auto"
+            <div className="px-12 py-8 scroll-custom overflow-y-auto"
               style={{ fontFamily: '"Times New Roman", Times, serif', fontSize: '14pt', lineHeight: '1.8', minHeight: '400px', maxHeight: '600px' }}>
               {chapters.map((ch, i) => (
                 <div key={ch.id} className={i > 0 ? "mt-8 pt-6 border-t border-border/40" : ""}>
