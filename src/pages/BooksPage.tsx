@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import Icon from "@/components/ui/icon";
-
+import { useBooks, BookMeta, BookFull } from "@/hooks/useBooks";
 
 type BookTab = "manuscript" | "synopsis" | "characters" | "plan" | "lore";
 
@@ -17,41 +17,60 @@ interface BookData {
   title: string;
   genre: string;
   words: number;
+  manuscript?: string;
+  synopsis?: string;
 }
 
-const INITIAL_BOOKS: BookData[] = [
-  { id: 1, title: "Осколки неба", genre: "Фэнтези", words: 34210 },
-  { id: 2, title: "Письма без адреса", genre: "Современная проза", words: 12750 },
-  { id: 3, title: "Сад ночных цветов", genre: "Магический реализм", words: 51800 },
-];
-
 export default function BooksPage() {
-  const [books, setBooks] = useState<BookData[]>(INITIAL_BOOKS);
+  const { books, loading, createBook: apiCreate, updateBook, deleteBook, getBook } = useBooks();
   const [selectedBook, setSelectedBook] = useState<number | null>(null);
+  const [selectedBookFull, setSelectedBookFull] = useState<BookFull | null>(null);
+  const [loadingBook, setLoadingBook] = useState(false);
   const [activeTab, setActiveTab] = useState<BookTab>("manuscript");
   const [showNewBook, setShowNewBook] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newGenre, setNewGenre] = useState("");
 
-  const createBook = () => {
+  const openBook = async (id: number) => {
+    setLoadingBook(true);
+    setSelectedBook(id);
+    const full = await getBook(id);
+    setSelectedBookFull(full);
+    setLoadingBook(false);
+  };
+
+  const handleCreate = async () => {
     if (!newTitle.trim()) return;
-    const nb: BookData = { id: Date.now(), title: newTitle.trim(), genre: newGenre.trim(), words: 0 };
-    setBooks([...books, nb]);
+    const nb = await apiCreate(newTitle.trim(), newGenre.trim());
     setShowNewBook(false);
     setNewTitle(""); setNewGenre("");
-    setSelectedBook(nb.id);
+    if (nb) openBook(nb.id);
+  };
+
+  const handleUpdate = async (fields: Partial<{ title: string; genre: string; manuscript: string; synopsis: string }>) => {
+    if (!selectedBook) return;
+    await updateBook(selectedBook, fields);
+    if (selectedBookFull) setSelectedBookFull({ ...selectedBookFull, ...fields });
+  };
+
+  const handleDelete = async (id: number) => {
+    await deleteBook(id);
+    setSelectedBook(null);
+    setSelectedBookFull(null);
   };
 
   if (selectedBook !== null) {
-    const book = books.find((b) => b.id === selectedBook);
-    if (!book) { setSelectedBook(null); return null; }
+    const bookMeta = books.find((b) => b.id === selectedBook);
+    const book: BookData = selectedBookFull ?? { id: selectedBook, title: bookMeta?.title ?? "", genre: bookMeta?.genre ?? "", words: bookMeta?.words ?? 0 };
     return (
       <BookDetail
         book={book}
         tab={activeTab}
         onTabChange={setActiveTab}
-        onBack={() => setSelectedBook(null)}
-        onUpdate={(updated) => setBooks(books.map((b) => b.id === updated.id ? updated : b))}
+        onBack={() => { setSelectedBook(null); setSelectedBookFull(null); }}
+        onUpdate={(fields) => handleUpdate(fields)}
+        onDelete={() => handleDelete(selectedBook)}
+        loading={loadingBook}
       />
     );
   }
@@ -60,58 +79,50 @@ export default function BooksPage() {
     <div className="max-w-5xl mx-auto px-6 py-10 pb-24 md:pb-10">
       <div className="flex items-center justify-between mb-8">
         <h1 className="font-cormorant text-4xl font-light">Мои книги</h1>
-        <button
-          onClick={() => setShowNewBook(true)}
+        <button onClick={() => setShowNewBook(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl font-lora text-sm transition-all hover-lift"
-          style={{ background: 'hsl(var(--violet))', color: 'hsl(var(--primary-foreground))' }}
-        >
+          style={{ background: 'hsl(var(--violet))', color: 'hsl(var(--primary-foreground))' }}>
           <Icon name="Plus" size={16} />
           Новая книга
         </button>
       </div>
 
-      {/* Books grid */}
-      <div className="grid md:grid-cols-2 gap-5">
-        {books.map((book) => (
-          <button
-            key={book.id}
-            onClick={() => setSelectedBook(book.id)}
-            className="text-left group p-6 rounded-xl border border-border bg-card hover-lift transition-all"
-          >
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-14 rounded-md flex-shrink-0 flex items-center justify-center"
-                style={{ background: 'hsl(var(--violet-light))' }}>
-                <span className="text-violet text-lg">✦</span>
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="w-6 h-6 border-2 rounded-full animate-spin"
+            style={{ borderColor: 'hsl(var(--violet) / 0.3)', borderTopColor: 'hsl(var(--violet))' }} />
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-5">
+          {books.filter((b) => b.title !== '[удалено]').map((book) => (
+            <button key={book.id} onClick={() => openBook(book.id)}
+              className="text-left group p-6 rounded-xl border border-border bg-card hover-lift transition-all">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-14 rounded-md flex-shrink-0 flex items-center justify-center"
+                  style={{ background: 'hsl(var(--violet-light))' }}>
+                  <span className="text-violet text-lg">✦</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-cormorant text-xl font-medium group-hover:text-violet transition-colors">{book.title}</h3>
+                  <p className="font-lora text-xs text-muted-foreground mt-0.5 mb-3">{book.genre || "Жанр не указан"}</p>
+                  <p className="font-lora text-sm text-muted-foreground">{book.words.toLocaleString("ru")} слов</p>
+                </div>
+                <Icon name="ChevronRight" size={18} className="text-muted-foreground group-hover:text-violet transition-colors mt-1" />
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-cormorant text-xl font-medium group-hover:text-violet transition-colors">
-                  {book.title}
-                </h3>
-                <p className="font-lora text-xs text-muted-foreground mt-0.5 mb-3">{book.genre}</p>
-                <p className="font-lora text-sm text-muted-foreground">
-                  {book.words.toLocaleString("ru")} слов
-                </p>
-              </div>
-              <Icon name="ChevronRight" size={18} className="text-muted-foreground group-hover:text-violet transition-colors mt-1" />
+            </button>
+          ))}
+          <button onClick={() => setShowNewBook(true)}
+            className="text-left group p-6 rounded-xl border-2 border-dashed border-border hover:border-violet bg-transparent hover-lift transition-all">
+            <div className="flex flex-col items-center justify-center h-20 gap-2">
+              <Icon name="PlusCircle" size={24} className="text-muted-foreground group-hover:text-violet transition-colors" />
+              <span className="font-lora text-sm text-muted-foreground group-hover:text-violet transition-colors">
+                Начать новую книгу
+              </span>
             </div>
           </button>
-        ))}
+        </div>
+      )}
 
-        {/* New book card */}
-        <button
-          onClick={() => setShowNewBook(true)}
-          className="text-left group p-6 rounded-xl border-2 border-dashed border-border hover:border-violet bg-transparent hover-lift transition-all"
-        >
-          <div className="flex flex-col items-center justify-center h-20 gap-2">
-            <Icon name="PlusCircle" size={24} className="text-muted-foreground group-hover:text-violet transition-colors" />
-            <span className="font-lora text-sm text-muted-foreground group-hover:text-violet transition-colors">
-              Начать новую книгу
-            </span>
-          </div>
-        </button>
-      </div>
-
-      {/* New book modal */}
       {showNewBook && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-card rounded-2xl border border-border p-7 w-full max-w-md animate-slide-up">
@@ -126,7 +137,7 @@ export default function BooksPage() {
               <div>
                 <label className="font-lora text-sm text-muted-foreground block mb-1.5">Жанр</label>
                 <input value={newGenre} onChange={(e) => setNewGenre(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && createBook()}
+                  onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                   className="w-full border border-border rounded-lg px-3 py-2.5 font-lora text-sm bg-background focus:outline-none focus:ring-1"
                   placeholder="Фэнтези, проза, детектив..." />
               </div>
@@ -136,7 +147,7 @@ export default function BooksPage() {
                 className="flex-1 py-2.5 rounded-lg border border-border font-lora text-sm text-muted-foreground hover:bg-muted transition-colors">
                 Отмена
               </button>
-              <button onClick={createBook}
+              <button onClick={handleCreate}
                 className="flex-1 py-2.5 rounded-lg font-lora text-sm transition-all"
                 style={{ background: 'hsl(var(--violet))', color: 'hsl(var(--primary-foreground))' }}>
                 Создать
@@ -155,19 +166,23 @@ function BookDetail({
   onTabChange,
   onBack,
   onUpdate,
+  onDelete,
+  loading,
 }: {
   book: BookData;
   tab: BookTab;
   onTabChange: (t: BookTab) => void;
   onBack: () => void;
-  onUpdate: (b: BookData) => void;
+  onUpdate: (fields: Partial<{ title: string; genre: string; manuscript: string; synopsis: string }>) => void;
+  onDelete: () => void;
+  loading?: boolean;
 }) {
   const [editingMeta, setEditingMeta] = useState(false);
   const [titleDraft, setTitleDraft] = useState(book.title);
   const [genreDraft, setGenreDraft] = useState(book.genre);
 
   const saveMeta = () => {
-    if (titleDraft.trim()) onUpdate({ ...book, title: titleDraft.trim(), genre: genreDraft.trim() });
+    if (titleDraft.trim()) onUpdate({ title: titleDraft.trim(), genre: genreDraft.trim() });
     setEditingMeta(false);
   };
 
@@ -240,13 +255,20 @@ function BookDetail({
       </div>
 
       {/* Tab content */}
-      <div className="animate-fade-in" key={tab}>
-        {tab === "manuscript" && <ManuscriptTab />}
-        {tab === "synopsis" && <SynopsisTab />}
-        {tab === "characters" && <CharactersTab />}
-        {tab === "plan" && <PlanTab />}
-        {tab === "lore" && <LoreTab />}
-      </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="w-6 h-6 border-2 rounded-full animate-spin"
+            style={{ borderColor: 'hsl(var(--violet) / 0.3)', borderTopColor: 'hsl(var(--violet))' }} />
+        </div>
+      ) : (
+        <div className="animate-fade-in" key={tab}>
+          {tab === "manuscript" && <ManuscriptTab initialText={book.manuscript ?? ""} onSave={(t) => onUpdate({ manuscript: t })} />}
+          {tab === "synopsis" && <SynopsisTab initialText={book.synopsis ?? ""} onSave={(t) => onUpdate({ synopsis: t })} />}
+          {tab === "characters" && <CharactersTab />}
+          {tab === "plan" && <PlanTab />}
+          {tab === "lore" && <LoreTab />}
+        </div>
+      )}
     </div>
   );
 }
@@ -266,13 +288,15 @@ function parseChapters(text: string): { label: string; start: number; end: numbe
   }));
 }
 
-function ManuscriptTab() {
+function ManuscriptTab({ initialText, onSave }: { initialText: string; onSave: (t: string) => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
-  const [text, setText] = useState(
-    `Глава 1. Начало пути\n\nВетер принёс запах дождя раньше, чем первые капли коснулись брусчатки. Эля подняла голову и увидела, как небо над шпилями башен темнеет — стремительно, почти враждебно.\n\nОна успела добежать до арки только наполовину...\n\nГлава 2. Башня\n\nДвери архива были заперты. Но Эля знала — замки здесь открываются не ключами.`
-  );
+  const [text, setText] = useState(initialText);
+  const [saved, setSaved] = useState(true);
   const [activeChapter, setActiveChapter] = useState<number | null>(null);
+
+  const handleChange = (val: string) => { setText(val); setSaved(false); };
+  const handleSave = () => { onSave(text); setSaved(true); };
 
   const chapters = parseChapters(text);
   const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
@@ -282,7 +306,7 @@ function ManuscriptTab() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => { setText(ev.target?.result as string ?? ""); setActiveChapter(null); };
+    reader.onload = (ev) => { setText(ev.target?.result as string ?? ""); setActiveChapter(null); setSaved(false); };
     reader.readAsText(file, "utf-8");
   };
 
@@ -339,12 +363,22 @@ function ManuscriptTab() {
             </div>
           )}
         </div>
-        <button onClick={() => fileRef.current?.click()}
-          className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
-          <Icon name="Upload" size={13} />
-          Загрузить
-          <input ref={fileRef} type="file" accept=".txt,.md" className="hidden" onChange={handleFileUpload} />
-        </button>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <button onClick={() => fileRef.current?.click()}
+            className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors">
+            <Icon name="Upload" size={13} />
+            Загрузить
+            <input ref={fileRef} type="file" accept=".txt,.md" className="hidden" onChange={handleFileUpload} />
+          </button>
+          {!saved && (
+            <button onClick={handleSave}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-lora text-xs text-white transition-all"
+              style={{ background: 'hsl(var(--violet))' }}>
+              <Icon name="Save" size={12} />
+              Сохранить
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tip */}
@@ -359,7 +393,7 @@ function ManuscriptTab() {
       <textarea
         ref={taRef}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => handleChange(e.target.value)}
         className="w-full resize-none focus:outline-none scroll-custom px-12 py-8"
         style={{
           fontFamily: '"Times New Roman", Times, serif',
@@ -385,235 +419,88 @@ function ManuscriptTab() {
   );
 }
 
-interface ChecklistItem {
-  id: string;
-  label: string;
-  ok: boolean;
-  comment: string | null;
-}
-
-interface TopIssue {
-  priority: "high" | "medium";
-  problem: string;
-  fix: string;
-}
-
-interface SynopsisAnalysis {
-  overall: string;
-  score: number;
-  volume_ok: boolean;
-  tense_ok: boolean;
-  has_ending: boolean;
-  checklist: ChecklistItem[];
-  top_issues: TopIssue[];
-  strengths: string[];
-}
-
-const VOLUME_MIN = 1500;
-const VOLUME_MAX = 3000;
-
-function SynopsisTab() {
-  const [synopsis, setSynopsis] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [analysis, setAnalysis] = useState<SynopsisAnalysis | null>(null);
-  const [error, setError] = useState("");
+function SynopsisTab({ initialText, onSave }: { initialText: string; onSave: (t: string) => void }) {
+  const [synopsis, setSynopsis] = useState(initialText);
+  const [saved, setSaved] = useState(true);
+  const [editing, setEditing] = useState(!initialText);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => setSynopsis(ev.target?.result as string ?? "");
+    reader.onload = (ev) => { setSynopsis(ev.target?.result as string ?? ""); setSaved(false); setEditing(true); };
     reader.readAsText(file, "utf-8");
   };
 
-  const analyze = async () => {
-    if (!synopsis.trim()) return;
-    setLoading(true);
-    setError("");
-    setAnalysis(null);
-    try {
-      const res = await fetch(SYNOPSIS_ANALYZE_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ synopsis }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Ошибка");
-      setAnalysis(data);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Не удалось выполнить анализ");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const save = () => { onSave(synopsis); setSaved(true); setEditing(false); };
+  const startEdit = () => setEditing(true);
 
-  const charCount = synopsis.length;
   const wordCount = synopsis.trim().split(/\s+/).filter(Boolean).length;
-  const volumePct = Math.min(100, Math.round((charCount / VOLUME_MAX) * 100));
-  const volumeColor = charCount < VOLUME_MIN ? "hsl(30 60% 44%)" : charCount > VOLUME_MAX ? "hsl(0 50% 46%)" : "hsl(150 40% 38%)";
-  const volumeLabel = charCount < VOLUME_MIN ? `ещё ${(VOLUME_MIN - charCount).toLocaleString("ru")} зн.` :
-    charCount > VOLUME_MAX ? `превышено на ${(charCount - VOLUME_MAX).toLocaleString("ru")} зн.` : "объём в норме";
-
-  const scoreColor = (s: number) =>
-    s >= 8 ? "hsl(150 40% 38%)" : s >= 5 ? "hsl(30 60% 44%)" : "hsl(0 50% 46%)";
+  const charCount = synopsis.length;
 
   return (
     <div className="space-y-4">
-      {/* ── Editor ── */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/20">
-          <div className="flex items-center gap-4">
+          <div className="flex gap-4">
             <span className="font-lora text-xs text-muted-foreground">{wordCount} слов</span>
-            <span className="font-lora text-xs font-medium" style={{ color: volumeColor }}>
-              {charCount.toLocaleString("ru")} зн. — {volumeLabel}
-            </span>
+            <span className="font-lora text-xs text-muted-foreground">{charCount.toLocaleString("ru")} знаков</span>
           </div>
-          <button onClick={() => fileRef.current?.click()}
-            className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors">
-            <Icon name="Upload" size={13} />
-            Загрузить .txt
+          <div className="flex items-center gap-3">
+            {!editing && (
+              <button onClick={() => fileRef.current?.click()}
+                className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="Upload" size={13} />
+                Загрузить .txt
+              </button>
+            )}
             <input ref={fileRef} type="file" accept=".txt,.md" className="hidden" onChange={handleFileUpload} />
-          </button>
-        </div>
-
-        {/* Volume bar */}
-        <div className="h-0.5 bg-muted">
-          <div className="h-full transition-all" style={{ width: `${volumePct}%`, background: volumeColor }} />
-        </div>
-
-        <textarea
-          value={synopsis}
-          onChange={(e) => setSynopsis(e.target.value)}
-          className="w-full h-72 px-5 py-4 font-lora text-sm leading-7 bg-card resize-none focus:outline-none scroll-custom"
-          placeholder={`Напишите или вставьте синопсис вашей книги...\n\nНорма: 1 500–3 000 знаков (сейчас ${charCount})`}
-        />
-      </div>
-
-      {/* ── Analyze button ── */}
-      {synopsis.trim().length > 100 && (
-        <button onClick={analyze} disabled={loading}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-lora text-sm transition-all hover-lift disabled:opacity-60"
-          style={{ background: 'hsl(var(--violet))', color: 'hsl(var(--primary-foreground))' }}>
-          {loading ? (
-            <>
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Редактор анализирует...
-            </>
-          ) : (
-            <>
-              <Icon name="Sparkles" size={16} />
-              Проверить по правилам издательства
-            </>
-          )}
-        </button>
-      )}
-
-      {error && (
-        <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/5 font-lora text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
-      {/* ── Analysis result ── */}
-      {analysis && (
-        <div className="space-y-4 animate-slide-up">
-
-          {/* Score + overall */}
-          <div className="p-5 rounded-xl border border-border bg-card">
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-16 h-16 rounded-xl flex flex-col items-center justify-center border-2"
-                style={{ borderColor: scoreColor(analysis.score), background: `${scoreColor(analysis.score)}15` }}>
-                <span className="font-cormorant text-3xl font-light leading-none" style={{ color: scoreColor(analysis.score) }}>
-                  {analysis.score}
-                </span>
-                <span className="font-lora text-[10px] text-muted-foreground">/ 10</span>
+            {editing ? (
+              <div className="flex gap-2">
+                <button onClick={() => { setEditing(false); setSynopsis(initialText); setSaved(true); }}
+                  className="font-lora text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  Отмена
+                </button>
+                <button onClick={save}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-lora text-xs text-white"
+                  style={{ background: 'hsl(var(--violet))' }}>
+                  <Icon name="Check" size={13} />
+                  Сохранить
+                </button>
               </div>
-              <p className="font-lora text-sm leading-relaxed text-foreground flex-1">{analysis.overall}</p>
-            </div>
-          </div>
-
-          {/* Two-column: checklist + issues */}
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Checklist */}
-            <div className="p-5 rounded-xl border border-border bg-card">
-              <div className="flex items-center gap-2 mb-4">
-                <Icon name="ClipboardCheck" size={15} className="text-violet" />
-                <span className="font-lora text-sm font-medium">Чеклист редактора</span>
-              </div>
-              <div className="space-y-2.5">
-                {analysis.checklist?.map((item) => (
-                  <div key={item.id} className="flex items-start gap-2.5">
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                      item.ok ? "bg-green-600/15" : "bg-red-500/10"
-                    }`}>
-                      {item.ok
-                        ? <Icon name="Check" size={11} className="text-green-600" />
-                        : <Icon name="X" size={11} className="text-red-500" />
-                      }
-                    </div>
-                    <div>
-                      <span className={`font-lora text-xs ${item.ok ? "text-foreground" : "text-foreground"}`}>
-                        {item.label}
-                      </span>
-                      {item.comment && !item.ok && (
-                        <p className="font-lora text-xs text-muted-foreground mt-0.5">{item.comment}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Strengths */}
-            {analysis.strengths?.length > 0 && (
-              <div className="p-5 rounded-xl border border-border bg-card">
-                <div className="flex items-center gap-2 mb-4">
-                  <Icon name="Star" size={15} className="text-violet" />
-                  <span className="font-lora text-sm font-medium">Сильные стороны</span>
-                </div>
-                <ul className="space-y-2.5">
-                  {analysis.strengths.map((s, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-violet flex-shrink-0 mt-0.5">✦</span>
-                      <span className="font-lora text-sm text-foreground">{s}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            ) : (
+              <button onClick={startEdit}
+                className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="Pencil" size={13} />
+                Редактировать
+              </button>
             )}
           </div>
-
-          {/* Top issues */}
-          {analysis.top_issues?.length > 0 && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 px-1">
-                <Icon name="AlertCircle" size={15} className="text-muted-foreground" />
-                <span className="font-lora text-sm font-medium">Что исправить в первую очередь</span>
-              </div>
-              {analysis.top_issues.map((issue, i) => (
-                <div key={i} className="p-5 rounded-xl border bg-card"
-                  style={{ borderColor: issue.priority === "high" ? "hsl(0 50% 46% / 0.3)" : "hsl(var(--border))" }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="font-lora text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wide"
-                      style={issue.priority === "high"
-                        ? { background: "hsl(0 50% 46% / 0.12)", color: "hsl(0 50% 46%)" }
-                        : { background: "hsl(30 60% 44% / 0.12)", color: "hsl(30 60% 44%)" }
-                      }>
-                      {issue.priority === "high" ? "важно" : "желательно"}
-                    </span>
-                  </div>
-                  <p className="font-lora text-sm text-foreground mb-2">{issue.problem}</p>
-                  <p className="font-lora text-sm text-muted-foreground border-l-2 pl-3 italic"
-                    style={{ borderColor: 'hsl(var(--violet) / 0.35)' }}>
-                    {issue.fix}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
-      )}
+
+        {editing ? (
+          <textarea value={synopsis} onChange={(e) => { setSynopsis(e.target.value); setSaved(false); }}
+            autoFocus
+            className="w-full h-96 px-5 py-4 font-lora text-sm leading-7 bg-card resize-none focus:outline-none scroll-custom"
+            placeholder="Напишите синопсис вашей книги..." />
+        ) : synopsis ? (
+          <div className="px-5 py-4 min-h-40">
+            <p className="font-lora text-sm leading-7 text-foreground whitespace-pre-wrap">{synopsis}</p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <Icon name="FileText" size={28} className="text-muted-foreground/40" />
+            <p className="font-lora text-sm text-muted-foreground">Синопсис ещё не написан</p>
+            <button onClick={() => setEditing(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-lora text-sm hover-lift transition-all"
+              style={{ background: 'hsl(var(--violet))', color: 'hsl(var(--primary-foreground))' }}>
+              <Icon name="Plus" size={15} />
+              Написать синопсис
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
