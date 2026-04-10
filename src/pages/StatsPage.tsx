@@ -146,22 +146,6 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {/* ── KEY METRICS ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {[
-          { label: "За неделю",   value: toDisplay(totalThisWeek).toLocaleString("ru"), unit: label },
-          { label: "В среднем",   value: toDisplay(avgPerDay).toLocaleString("ru"),     unit: `${label} / день` },
-          { label: "Лучший день", value: WEEK_DAYS[bestDay],                             unit: "эта неделя" },
-          { label: "Серия",       value: "12",                                           unit: "дней подряд" },
-        ].map((s) => (
-          <div key={s.label} className="p-4 rounded-xl border border-border bg-card text-center">
-            <div className="font-cormorant text-3xl font-light text-violet leading-none mb-0.5">{s.value}</div>
-            <div className="font-lora text-xs text-muted-foreground">{s.unit}</div>
-            <div className="font-lora text-[10px] text-muted-foreground/50 mt-0.5">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
       {/* ── CHARTS ── */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         {/* Period + metric toggles */}
@@ -286,6 +270,22 @@ export default function StatsPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* ── KEY METRICS ── */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: "За неделю",   value: toDisplay(totalThisWeek).toLocaleString("ru"), unit: label },
+          { label: "В среднем",   value: toDisplay(avgPerDay).toLocaleString("ru"),     unit: `${label} / день` },
+          { label: "Лучший день", value: WEEK_DAYS[bestDay],                             unit: "эта неделя" },
+          { label: "Серия",       value: "12",                                           unit: "дней подряд" },
+        ].map((s) => (
+          <div key={s.label} className="p-4 rounded-xl border border-border bg-card text-center">
+            <div className="font-cormorant text-3xl font-light text-violet leading-none mb-0.5">{s.value}</div>
+            <div className="font-lora text-xs text-muted-foreground">{s.unit}</div>
+            <div className="font-lora text-[10px] text-muted-foreground/50 mt-0.5">{s.label}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
