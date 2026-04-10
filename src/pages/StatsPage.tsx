@@ -61,9 +61,17 @@ export default function StatsPage() {
 
   const [period, setPeriod] = useState<Period>("week");
   const [metric, setMetric] = useState<Metric>("words");
-  const [bookGoals, setBookGoals] = useState<Record<number, number>>({});
+  const [bookGoals, setBookGoals] = useState<Record<number, number>>(() => {
+    try { return JSON.parse(localStorage.getItem("scriptorium_book_goals") || "{}"); } catch { return {}; }
+  });
   const [editingGoal, setEditingGoal] = useState<number | null>(null);
   const [goalDraft, setGoalDraft] = useState("");
+
+  const setGoal = (bookId: number, chars: number) => {
+    const updated = { ...bookGoals, [bookId]: chars };
+    setBookGoals(updated);
+    localStorage.setItem("scriptorium_book_goals", JSON.stringify(updated));
+  };
 
   const totalThisWeek = weekWords.reduce((a, b) => a + b, 0);
   const activeDays = weekWords.filter(Boolean).length;
@@ -134,6 +142,13 @@ export default function StatsPage() {
                   <span style={{ color }}>{chars.toLocaleString("ru")} зн.</span>
                 </div>
 
+                {pct === null && (
+                  <button onClick={() => { setGoal(b.id, 50000); setEditingGoal(b.id); setGoalDraft("50000"); }}
+                    className="font-lora text-[11px] text-muted-foreground/60 hover:text-violet transition-colors">
+                    + Поставить цель
+                  </button>
+                )}
+
                 {pct !== null && (
                   <>
                     <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-1">
@@ -149,7 +164,7 @@ export default function StatsPage() {
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 const v = parseInt(goalDraft.replace(/\D/g, ""));
-                                if (v > 0) setBookGoals({ ...bookGoals, [b.id]: v });
+                                if (v > 0) setGoal(b.id, v);
                                 setEditingGoal(null);
                               }
                               if (e.key === "Escape") setEditingGoal(null);
@@ -159,7 +174,7 @@ export default function StatsPage() {
                             autoFocus />
                           <button onClick={() => {
                             const v = parseInt(goalDraft.replace(/\D/g, ""));
-                            if (v > 0) setBookGoals({ ...bookGoals, [b.id]: v });
+                            if (v > 0) setGoal(b.id, v);
                             setEditingGoal(null);
                           }} className="text-violet hover:opacity-70">✓</button>
                         </div>
