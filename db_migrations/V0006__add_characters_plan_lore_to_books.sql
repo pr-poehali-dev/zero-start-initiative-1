@@ -1,0 +1,5 @@
+ALTER TABLE t_p73769905_zero_start_initiativ.books
+  ADD COLUMN IF NOT EXISTS characters text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS plan text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS lore_tags text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS lore_notes text NOT NULL DEFAULT '';

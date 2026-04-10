@@ -44,21 +44,17 @@ const PLAN_SECTIONS_DEFAULT: PlanSection[] = [
   ]},
 ];
 
-export default function PlanTab({ bookId }: { bookId: number }) {
-  const storageKey = `scriptorium_plan_${bookId}`;
-  const loadSections = (): PlanSection[] => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) return JSON.parse(raw);
-    } catch (_e) { /* ignore */ }
+export default function PlanTab({ bookId, initialData, onSave }: { bookId: number; initialData: string; onSave: (v: string) => void }) {
+  const parseInitial = (): PlanSection[] => {
+    try { if (initialData) return JSON.parse(initialData); } catch (_e) { /* ignore */ }
     return [];
   };
   const saveSections = (secs: PlanSection[]) => {
-    localStorage.setItem(storageKey, JSON.stringify(secs));
+    onSave(JSON.stringify(secs));
   };
 
   const [sections, setSections] = useState<PlanSection[]>(() => {
-    const saved = loadSections();
+    const saved = parseInitial();
     return saved.length > 0 ? saved : PLAN_SECTIONS_DEFAULT.map((s) => ({ ...s, episodes: [] }));
   });
   const [editingEp, setEditingEp] = useState<{ sectionId: string; ep: PlanEpisode } | null>(null);

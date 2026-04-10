@@ -14,6 +14,10 @@ export interface BookMeta {
 export interface BookFull extends BookMeta {
   manuscript: string;
   synopsis: string;
+  characters: string;
+  plan: string;
+  lore_tags: string;
+  lore_notes: string;
 }
 
 function getToken() {
@@ -50,7 +54,10 @@ export function useBooks() {
     return null;
   };
 
-  const updateBook = async (bookId: number, fields: Partial<{ title: string; genre: string; manuscript: string; synopsis: string }>) => {
+  const updateBook = async (bookId: number, fields: Partial<{
+    title: string; genre: string; manuscript: string; synopsis: string;
+    characters: string; plan: string; lore_tags: string; lore_notes: string;
+  }>) => {
     const data = await apiFetch({ action: "update", book_id: bookId, ...fields });
     if (data.book) {
       setBooks((prev) => prev.map((b) => b.id === bookId ? { ...b, ...data.book } : b));

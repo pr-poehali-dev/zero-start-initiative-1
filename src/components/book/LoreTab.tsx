@@ -50,21 +50,23 @@ const DEFAULT_NOTES: LoreNote[] = [
   },
 ];
 
-export default function LoreTab({ bookId }: { bookId: number }) {
-  const tagsKey = `scriptorium_lore_tags_${bookId}`;
-  const notesKey = `scriptorium_lore_notes_${bookId}`;
-
-  const loadTags = (): LoreTag[] => {
-    try { const r = localStorage.getItem(tagsKey); if (r) return JSON.parse(r); } catch (_e) { /* ignore */ }
+export default function LoreTab({ initialTags, initialNotes, onSaveTags, onSaveNotes }: {
+  initialTags: string;
+  initialNotes: string;
+  onSaveTags: (v: string) => void;
+  onSaveNotes: (v: string) => void;
+}) {
+  const parseTags = (): LoreTag[] => {
+    try { if (initialTags) return JSON.parse(initialTags); } catch (_e) { /* ignore */ }
     return [];
   };
-  const loadNotes = (): LoreNote[] => {
-    try { const r = localStorage.getItem(notesKey); if (r) return JSON.parse(r); } catch (_e) { /* ignore */ }
+  const parseNotes = (): LoreNote[] => {
+    try { if (initialNotes) return JSON.parse(initialNotes); } catch (_e) { /* ignore */ }
     return [];
   };
 
-  const [tags, setTags] = useState<LoreTag[]>(() => { const s = loadTags(); return s.length > 0 ? s : []; });
-  const [notes, setNotes] = useState<LoreNote[]>(() => { const s = loadNotes(); return s.length > 0 ? s : []; });
+  const [tags, setTags] = useState<LoreTag[]>(parseTags);
+  const [notes, setNotes] = useState<LoreNote[]>(parseNotes);
   const [activeTag, setActiveTag] = useState<number | null>(null);
   const [openNote, setOpenNote] = useState<LoreNote | null>(null);
   const [editingNote, setEditingNote] = useState(false);
@@ -84,11 +86,11 @@ export default function LoreTab({ bookId }: { bookId: number }) {
 
   const updateTags = (updated: LoreTag[]) => {
     setTags(updated);
-    localStorage.setItem(tagsKey, JSON.stringify(updated));
+    onSaveTags(JSON.stringify(updated));
   };
   const updateNotes = (updated: LoreNote[]) => {
     setNotes(updated);
-    localStorage.setItem(notesKey, JSON.stringify(updated));
+    onSaveNotes(JSON.stringify(updated));
   };
 
   const addTag = () => {

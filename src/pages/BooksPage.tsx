@@ -23,6 +23,10 @@ interface BookData {
   words: number;
   manuscript?: string;
   synopsis?: string;
+  characters?: string;
+  plan?: string;
+  lore_tags?: string;
+  lore_notes?: string;
 }
 
 const wordsToChars = (w: number) => Math.round(w * 5.5);
@@ -71,7 +75,10 @@ export default function BooksPage() {
     if (nb) openBook(nb.id);
   };
 
-  const handleUpdate = async (fields: Partial<{ title: string; genre: string; manuscript: string; synopsis: string }>) => {
+  const handleUpdate = async (fields: Partial<{
+    title: string; genre: string; manuscript: string; synopsis: string;
+    characters: string; plan: string; lore_tags: string; lore_notes: string;
+  }>) => {
     if (!selectedBook) return;
     await updateBook(selectedBook, fields);
     if (selectedBookFull) setSelectedBookFull({ ...selectedBookFull, ...fields });
@@ -304,7 +311,10 @@ function BookDetail({
   tab: BookTab;
   onTabChange: (t: BookTab) => void;
   onBack: () => void;
-  onUpdate: (fields: Partial<{ title: string; genre: string; manuscript: string; synopsis: string }>) => void;
+  onUpdate: (fields: Partial<{
+    title: string; genre: string; manuscript: string; synopsis: string;
+    characters: string; plan: string; lore_tags: string; lore_notes: string;
+  }>) => void;
   onDelete: () => void;
   loading?: boolean;
   goalChars?: number;
@@ -455,9 +465,9 @@ function BookDetail({
         <div className="animate-fade-in" key={tab}>
           {tab === "manuscript" && <ManuscriptTab key={book.id} bookId={book.id} initialText={book.manuscript ?? ""} onSave={(t) => onUpdate({ manuscript: t })} />}
           {tab === "synopsis" && <SynopsisTab initialText={book.synopsis ?? ""} onSave={(t) => onUpdate({ synopsis: t })} />}
-          {tab === "characters" && <CharactersTab key={book.id} bookId={book.id} />}
-          {tab === "plan" && <PlanTab key={book.id} bookId={book.id} />}
-          {tab === "lore" && <LoreTab key={book.id} bookId={book.id} />}
+          {tab === "characters" && <CharactersTab key={book.id} bookId={book.id} initialData={book.characters ?? ""} onSave={(v) => onUpdate({ characters: v })} />}
+          {tab === "plan" && <PlanTab key={book.id} bookId={book.id} initialData={book.plan ?? ""} onSave={(v) => onUpdate({ plan: v })} />}
+          {tab === "lore" && <LoreTab key={book.id} initialTags={book.lore_tags ?? ""} initialNotes={book.lore_notes ?? ""} onSaveTags={(v) => onUpdate({ lore_tags: v })} onSaveNotes={(v) => onUpdate({ lore_notes: v })} />}
         </div>
       )}
 

@@ -38,20 +38,16 @@ const ROLES = [
 
 const ROLE_COLORS: Record<string, string> = Object.fromEntries(ROLES.map((r) => [r.label, r.color]));
 
-export default function CharactersTab({ bookId }: { bookId: number }) {
-  const storageKey = `scriptorium_chars_${bookId}`;
-  const loadChars = (): Character[] => {
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) return JSON.parse(raw);
-    } catch (_e) { /* ignore */ }
+export default function CharactersTab({ bookId, initialData, onSave }: { bookId: number; initialData: string; onSave: (v: string) => void }) {
+  const parseInitial = (): Character[] => {
+    try { if (initialData) return JSON.parse(initialData); } catch (_e) { /* ignore */ }
     return [];
   };
   const saveChars = (chars: Character[]) => {
-    localStorage.setItem(storageKey, JSON.stringify(chars));
+    onSave(JSON.stringify(chars));
   };
 
-  const [characters, setCharacters] = useState<Character[]>(loadChars);
+  const [characters, setCharacters] = useState<Character[]>(parseInitial);
   const [view, setView] = useState<"list" | "card" | "questionnaire">("list");
   const [selected, setSelected] = useState<Character | null>(null);
   const [editing, setEditing] = useState(false);
