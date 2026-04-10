@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Icon from "@/components/ui/icon";
+
+const SYNOPSIS_ANALYZE_URL = "https://functions.poehali.dev/da1e9eb2-38d0-4305-984a-1a415b74a4fb";
 
 type BookTab = "manuscript" | "synopsis" | "characters" | "plan" | "lore";
 
@@ -218,32 +220,173 @@ function ManuscriptTab() {
   );
 }
 
+interface SynopsisIssue {
+  rule: string;
+  problem: string;
+  suggestion: string;
+}
+
+interface SynopsisAnalysis {
+  overall: string;
+  strengths: string[];
+  issues: SynopsisIssue[];
+  score: number;
+}
+
 function SynopsisTab() {
   const [synopsis, setSynopsis] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [analysis, setAnalysis] = useState<SynopsisAnalysis | null>(null);
+  const [error, setError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setSynopsis(ev.target?.result as string ?? "");
+    reader.readAsText(file, "utf-8");
+  };
+
+  const analyze = async () => {
+    if (!synopsis.trim()) return;
+    setLoading(true);
+    setError("");
+    setAnalysis(null);
+    try {
+      const res = await fetch(SYNOPSIS_ANALYZE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ synopsis }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Ошибка");
+      setAnalysis(data);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Не удалось выполнить анализ");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const wordCount = synopsis.trim().split(/\s+/).filter(Boolean).length;
+  const charCount = synopsis.replace(/\s/g, "").length;
 
   return (
     <div className="space-y-5">
-      <div className="p-4 rounded-xl border border-border bg-muted/30">
-        <div className="flex items-center gap-2 mb-2">
-          <Icon name="Sparkles" size={15} className="text-violet" />
-          <span className="font-lora text-sm font-medium">Автогенерация синопсиса</span>
+      {/* Editor */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/20">
+          <div className="flex gap-4">
+            <span className="font-lora text-xs text-muted-foreground">{wordCount} слов</span>
+            <span className="font-lora text-xs text-muted-foreground">{charCount} знаков</span>
+          </div>
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Icon name="Upload" size={13} />
+            Загрузить файл
+            <input ref={fileRef} type="file" accept=".txt,.md" className="hidden" onChange={handleFileUpload} />
+          </button>
         </div>
-        <p className="font-lora text-xs text-muted-foreground mb-3">
-          На основе вашей рукописи ИИ составит синопсис по профессиональным правилам.
-        </p>
+        <textarea
+          value={synopsis}
+          onChange={(e) => setSynopsis(e.target.value)}
+          className="w-full h-64 px-5 py-4 font-lora text-sm leading-7 bg-card resize-none focus:outline-none scroll-custom"
+          placeholder="Напишите или вставьте синопсис вашей книги..."
+        />
+      </div>
+
+      {/* Analyze button */}
+      {synopsis.trim().length > 50 && (
         <button
-          className="px-4 py-2 rounded-lg font-lora text-xs transition-all hover-lift"
+          onClick={analyze}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-lora text-sm transition-all hover-lift disabled:opacity-60"
           style={{ background: 'hsl(var(--violet))', color: 'hsl(var(--primary-foreground))' }}
         >
-          Сгенерировать синопсис
+          {loading ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Анализирую...
+            </>
+          ) : (
+            <>
+              <Icon name="Sparkles" size={16} />
+              Проверить синопсис по правилам
+            </>
+          )}
         </button>
-      </div>
-      <textarea
-        value={synopsis}
-        onChange={(e) => setSynopsis(e.target.value)}
-        className="w-full h-64 border border-border rounded-xl px-5 py-4 font-lora text-sm leading-7 bg-card resize-none focus:outline-none focus:ring-1 scroll-custom"
-        placeholder="Синопсис вашей книги..."
-      />
+      )}
+
+      {error && (
+        <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/5 font-lora text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      {/* Analysis result */}
+      {analysis && (
+        <div className="space-y-4 animate-slide-up">
+          {/* Score + overall */}
+          <div className="p-5 rounded-xl border border-border bg-card">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-14 h-14 rounded-xl flex flex-col items-center justify-center"
+                style={{ background: 'hsl(var(--violet-light))' }}>
+                <span className="font-cormorant text-2xl font-medium text-violet">{analysis.score}</span>
+                <span className="font-lora text-[10px] text-muted-foreground">/ 10</span>
+              </div>
+              <div>
+                <p className="font-lora text-sm leading-relaxed text-foreground">{analysis.overall}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Strengths */}
+          {analysis.strengths?.length > 0 && (
+            <div className="p-5 rounded-xl border border-border bg-card">
+              <div className="flex items-center gap-2 mb-3">
+                <Icon name="ThumbsUp" size={15} className="text-violet" />
+                <span className="font-lora text-sm font-medium">Что хорошо</span>
+              </div>
+              <ul className="space-y-1.5">
+                {analysis.strengths.map((s, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-violet mt-0.5 flex-shrink-0">✦</span>
+                    <span className="font-lora text-sm text-foreground">{s}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Issues */}
+          {analysis.issues?.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 px-1">
+                <Icon name="AlertCircle" size={15} className="text-muted-foreground" />
+                <span className="font-lora text-sm font-medium">Что улучшить</span>
+              </div>
+              {analysis.issues.map((issue, i) => (
+                <div key={i} className="p-5 rounded-xl border border-border bg-card">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-lora text-xs px-2 py-0.5 rounded-full"
+                      style={{ background: 'hsl(var(--violet-light))', color: 'hsl(var(--violet))' }}>
+                      {issue.rule}
+                    </span>
+                  </div>
+                  <p className="font-lora text-sm text-foreground mb-2">{issue.problem}</p>
+                  <p className="font-lora text-sm text-muted-foreground border-l-2 pl-3"
+                    style={{ borderColor: 'hsl(var(--violet) / 0.4)' }}>
+                    {issue.suggestion}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

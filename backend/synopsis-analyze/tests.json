@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Empty synopsis error",
+      "method": "POST",
+      "path": "/",
+      "body": {"synopsis": ""},
+      "expectedStatus": 400
+    }
+  ]
+}
