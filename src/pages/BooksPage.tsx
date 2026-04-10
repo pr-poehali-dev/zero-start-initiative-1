@@ -220,18 +220,32 @@ function ManuscriptTab() {
   );
 }
 
-interface SynopsisIssue {
-  rule: string;
+interface ChecklistItem {
+  id: string;
+  label: string;
+  ok: boolean;
+  comment: string | null;
+}
+
+interface TopIssue {
+  priority: "high" | "medium";
   problem: string;
-  suggestion: string;
+  fix: string;
 }
 
 interface SynopsisAnalysis {
   overall: string;
-  strengths: string[];
-  issues: SynopsisIssue[];
   score: number;
+  volume_ok: boolean;
+  tense_ok: boolean;
+  has_ending: boolean;
+  checklist: ChecklistItem[];
+  top_issues: TopIssue[];
+  strengths: string[];
 }
+
+const VOLUME_MIN = 1500;
+const VOLUME_MAX = 3000;
 
 function SynopsisTab() {
   const [synopsis, setSynopsis] = useState("");
@@ -269,52 +283,62 @@ function SynopsisTab() {
     }
   };
 
+  const charCount = synopsis.length;
   const wordCount = synopsis.trim().split(/\s+/).filter(Boolean).length;
-  const charCount = synopsis.replace(/\s/g, "").length;
+  const volumePct = Math.min(100, Math.round((charCount / VOLUME_MAX) * 100));
+  const volumeColor = charCount < VOLUME_MIN ? "hsl(30 60% 44%)" : charCount > VOLUME_MAX ? "hsl(0 50% 46%)" : "hsl(150 40% 38%)";
+  const volumeLabel = charCount < VOLUME_MIN ? `ещё ${(VOLUME_MIN - charCount).toLocaleString("ru")} зн.` :
+    charCount > VOLUME_MAX ? `превышено на ${(charCount - VOLUME_MAX).toLocaleString("ru")} зн.` : "объём в норме";
+
+  const scoreColor = (s: number) =>
+    s >= 8 ? "hsl(150 40% 38%)" : s >= 5 ? "hsl(30 60% 44%)" : "hsl(0 50% 46%)";
 
   return (
-    <div className="space-y-5">
-      {/* Editor */}
+    <div className="space-y-4">
+      {/* ── Editor ── */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/20">
-          <div className="flex gap-4">
+          <div className="flex items-center gap-4">
             <span className="font-lora text-xs text-muted-foreground">{wordCount} слов</span>
-            <span className="font-lora text-xs text-muted-foreground">{charCount} знаков</span>
+            <span className="font-lora text-xs font-medium" style={{ color: volumeColor }}>
+              {charCount.toLocaleString("ru")} зн. — {volumeLabel}
+            </span>
           </div>
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
+          <button onClick={() => fileRef.current?.click()}
+            className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors">
             <Icon name="Upload" size={13} />
-            Загрузить файл
+            Загрузить .txt
             <input ref={fileRef} type="file" accept=".txt,.md" className="hidden" onChange={handleFileUpload} />
           </button>
         </div>
+
+        {/* Volume bar */}
+        <div className="h-0.5 bg-muted">
+          <div className="h-full transition-all" style={{ width: `${volumePct}%`, background: volumeColor }} />
+        </div>
+
         <textarea
           value={synopsis}
           onChange={(e) => setSynopsis(e.target.value)}
-          className="w-full h-64 px-5 py-4 font-lora text-sm leading-7 bg-card resize-none focus:outline-none scroll-custom"
-          placeholder="Напишите или вставьте синопсис вашей книги..."
+          className="w-full h-72 px-5 py-4 font-lora text-sm leading-7 bg-card resize-none focus:outline-none scroll-custom"
+          placeholder={`Напишите или вставьте синопсис вашей книги...\n\nНорма: 1 500–3 000 знаков (сейчас ${charCount})`}
         />
       </div>
 
-      {/* Analyze button */}
-      {synopsis.trim().length > 50 && (
-        <button
-          onClick={analyze}
-          disabled={loading}
+      {/* ── Analyze button ── */}
+      {synopsis.trim().length > 100 && (
+        <button onClick={analyze} disabled={loading}
           className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-lora text-sm transition-all hover-lift disabled:opacity-60"
-          style={{ background: 'hsl(var(--violet))', color: 'hsl(var(--primary-foreground))' }}
-        >
+          style={{ background: 'hsl(var(--violet))', color: 'hsl(var(--primary-foreground))' }}>
           {loading ? (
             <>
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Анализирую...
+              Редактор анализирует...
             </>
           ) : (
             <>
               <Icon name="Sparkles" size={16} />
-              Проверить синопсис по правилам
+              Проверить по правилам издательства
             </>
           )}
         </button>
@@ -326,60 +350,98 @@ function SynopsisTab() {
         </div>
       )}
 
-      {/* Analysis result */}
+      {/* ── Analysis result ── */}
       {analysis && (
         <div className="space-y-4 animate-slide-up">
+
           {/* Score + overall */}
           <div className="p-5 rounded-xl border border-border bg-card">
             <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-14 h-14 rounded-xl flex flex-col items-center justify-center"
-                style={{ background: 'hsl(var(--violet-light))' }}>
-                <span className="font-cormorant text-2xl font-medium text-violet">{analysis.score}</span>
+              <div className="flex-shrink-0 w-16 h-16 rounded-xl flex flex-col items-center justify-center border-2"
+                style={{ borderColor: scoreColor(analysis.score), background: `${scoreColor(analysis.score)}15` }}>
+                <span className="font-cormorant text-3xl font-light leading-none" style={{ color: scoreColor(analysis.score) }}>
+                  {analysis.score}
+                </span>
                 <span className="font-lora text-[10px] text-muted-foreground">/ 10</span>
               </div>
-              <div>
-                <p className="font-lora text-sm leading-relaxed text-foreground">{analysis.overall}</p>
-              </div>
+              <p className="font-lora text-sm leading-relaxed text-foreground flex-1">{analysis.overall}</p>
             </div>
           </div>
 
-          {/* Strengths */}
-          {analysis.strengths?.length > 0 && (
+          {/* Two-column: checklist + issues */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Checklist */}
             <div className="p-5 rounded-xl border border-border bg-card">
-              <div className="flex items-center gap-2 mb-3">
-                <Icon name="ThumbsUp" size={15} className="text-violet" />
-                <span className="font-lora text-sm font-medium">Что хорошо</span>
+              <div className="flex items-center gap-2 mb-4">
+                <Icon name="ClipboardCheck" size={15} className="text-violet" />
+                <span className="font-lora text-sm font-medium">Чеклист редактора</span>
               </div>
-              <ul className="space-y-1.5">
-                {analysis.strengths.map((s, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="text-violet mt-0.5 flex-shrink-0">✦</span>
-                    <span className="font-lora text-sm text-foreground">{s}</span>
-                  </li>
+              <div className="space-y-2.5">
+                {analysis.checklist?.map((item) => (
+                  <div key={item.id} className="flex items-start gap-2.5">
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                      item.ok ? "bg-green-600/15" : "bg-red-500/10"
+                    }`}>
+                      {item.ok
+                        ? <Icon name="Check" size={11} className="text-green-600" />
+                        : <Icon name="X" size={11} className="text-red-500" />
+                      }
+                    </div>
+                    <div>
+                      <span className={`font-lora text-xs ${item.ok ? "text-foreground" : "text-foreground"}`}>
+                        {item.label}
+                      </span>
+                      {item.comment && !item.ok && (
+                        <p className="font-lora text-xs text-muted-foreground mt-0.5">{item.comment}</p>
+                      )}
+                    </div>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
-          )}
 
-          {/* Issues */}
-          {analysis.issues?.length > 0 && (
+            {/* Strengths */}
+            {analysis.strengths?.length > 0 && (
+              <div className="p-5 rounded-xl border border-border bg-card">
+                <div className="flex items-center gap-2 mb-4">
+                  <Icon name="Star" size={15} className="text-violet" />
+                  <span className="font-lora text-sm font-medium">Сильные стороны</span>
+                </div>
+                <ul className="space-y-2.5">
+                  {analysis.strengths.map((s, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="text-violet flex-shrink-0 mt-0.5">✦</span>
+                      <span className="font-lora text-sm text-foreground">{s}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Top issues */}
+          {analysis.top_issues?.length > 0 && (
             <div className="space-y-3">
               <div className="flex items-center gap-2 px-1">
                 <Icon name="AlertCircle" size={15} className="text-muted-foreground" />
-                <span className="font-lora text-sm font-medium">Что улучшить</span>
+                <span className="font-lora text-sm font-medium">Что исправить в первую очередь</span>
               </div>
-              {analysis.issues.map((issue, i) => (
-                <div key={i} className="p-5 rounded-xl border border-border bg-card">
+              {analysis.top_issues.map((issue, i) => (
+                <div key={i} className="p-5 rounded-xl border bg-card"
+                  style={{ borderColor: issue.priority === "high" ? "hsl(0 50% 46% / 0.3)" : "hsl(var(--border))" }}>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="font-lora text-xs px-2 py-0.5 rounded-full"
-                      style={{ background: 'hsl(var(--violet-light))', color: 'hsl(var(--violet))' }}>
-                      {issue.rule}
+                    <span className="font-lora text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wide"
+                      style={issue.priority === "high"
+                        ? { background: "hsl(0 50% 46% / 0.12)", color: "hsl(0 50% 46%)" }
+                        : { background: "hsl(30 60% 44% / 0.12)", color: "hsl(30 60% 44%)" }
+                      }>
+                      {issue.priority === "high" ? "важно" : "желательно"}
                     </span>
                   </div>
                   <p className="font-lora text-sm text-foreground mb-2">{issue.problem}</p>
-                  <p className="font-lora text-sm text-muted-foreground border-l-2 pl-3"
-                    style={{ borderColor: 'hsl(var(--violet) / 0.4)' }}>
-                    {issue.suggestion}
+                  <p className="font-lora text-sm text-muted-foreground border-l-2 pl-3 italic"
+                    style={{ borderColor: 'hsl(var(--violet) / 0.35)' }}>
+                    {issue.fix}
                   </p>
                 </div>
               ))}
