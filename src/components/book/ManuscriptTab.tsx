@@ -10,7 +10,7 @@ interface ManuscriptChapter {
 const EDITOR_STYLES = `
   .ms-editor { outline: none; font-family: "Times New Roman", Times, serif; font-size: 14pt; line-height: 1.8; min-height: 420px; padding: 2rem 3rem; direction: ltr; }
   .ms-editor:focus { outline: none; }
-  .ms-editor p { margin: 0 0 0.5em; }
+  .ms-editor p { margin: 0; }
   .ms-editor b, .ms-editor strong { font-weight: bold; }
   .ms-editor i, .ms-editor em { font-style: italic; }
   .ms-editor u { text-decoration: underline; }
