@@ -400,8 +400,26 @@ function ManuscriptTab({ initialText, onSave }: { initialText: string; onSave: (
   const totalWords = chapters.reduce((s, c) => s + c.content.trim().split(/\s+/).filter(Boolean).length, 0);
   const totalChars = chapters.reduce((s, c) => s + c.content.replace(/\s/g, "").length, 0);
 
+  const downloadText = (text: string, filename: string) => {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadAll = () => {
+    const text = chapters.map((c) => `${c.title}\n\n${c.content}`).join("\n\n---\n\n");
+    downloadText(text, "рукопись.txt");
+  };
+
   return (
     <div className="space-y-3">
+      {/* Intro */}
+      <p className="font-lora text-sm text-muted-foreground leading-relaxed">
+        Здесь вы можете писать рукопись, сохраняя прогресс. Делайте, как вам удобно: пишите по порядку или прыгайте по разным сценам. Готовые тексты в любой момент можно скопировать или скачать для редактуры и оформления в Google Docs или Word.
+      </p>
+
       {/* Mode toggle */}
       <div className="flex items-center gap-1 p-1 bg-muted rounded-xl w-fit">
         {([["chapters", "По главам"], ["full", "Полный файл"]] as const).map(([v, l]) => (
@@ -481,7 +499,7 @@ function ManuscriptTab({ initialText, onSave }: { initialText: string; onSave: (
                 <div className="w-px h-4 bg-border mx-1" />
                 <button onClick={() => execCmd("formatBlock", "h2")} title="Заголовок"
                   className="px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
-                  Заг.
+                  Заголовок
                 </button>
                 <button onClick={() => execCmd("formatBlock", "p")} title="Обычный текст"
                   className="px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
@@ -502,12 +520,14 @@ function ManuscriptTab({ initialText, onSave }: { initialText: string; onSave: (
               {/* Footer */}
               <div className="px-4 py-2 border-t border-border bg-muted/20 flex justify-between items-center">
                 <div className="flex gap-4">
-                  <span className="font-lora text-xs text-muted-foreground">{totalWords.toLocaleString("ru")} слов всего</span>
+                  <span className="font-lora text-xs text-muted-foreground">{totalWords.toLocaleString("ru")} слов</span>
                   <span className="font-lora text-xs text-muted-foreground">{totalChars.toLocaleString("ru")} знаков</span>
                 </div>
-                <span className="font-lora text-xs text-muted-foreground/50 italic">
-                  Редактирование сохраняется автоматически
-                </span>
+                <button onClick={downloadAll}
+                  className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors">
+                  <Icon name="Download" size={13} />
+                  Скачать .txt
+                </button>
               </div>
             </div>
           )}
@@ -519,14 +539,13 @@ function ManuscriptTab({ initialText, onSave }: { initialText: string; onSave: (
         <div className="rounded-xl border border-border overflow-hidden bg-card">
           <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/20">
             <p className="font-lora text-xs text-muted-foreground/60 italic">
-              Рекомендуем писать в Google Docs или Word, а сюда загружать готовый текст — бэкап рядом со всеми материалами.
+              Рекомендуем сохранять результат в Google Docs или Word для дальнейшего оформления и редактуры.
             </p>
             <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-              <button onClick={() => fileRef.current?.click()}
+              <button onClick={() => downloadText(fullText, "рукопись.txt")}
                 className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
-                <Icon name="Upload" size={13} />
-                Загрузить .txt / .doc
-                <input ref={fileRef} type="file" accept=".txt,.md,.doc,.docx" className="hidden" onChange={handleFileUpload} />
+                <Icon name="Download" size={13} />
+                Скачать .txt
               </button>
               {!fullSaved && (
                 <button onClick={() => { onSave(fullText); setFullSaved(true); }}
@@ -1420,7 +1439,7 @@ interface LoreTag {
 interface LoreNote {
   id: number;
   title: string;
-  tagId: number;
+  tagIds: number[];
   text: string;
 }
 
@@ -1443,19 +1462,19 @@ const DEFAULT_NOTES: LoreNote[] = [
   {
     id: 1,
     title: "Астероид B-612",
-    tagId: 1,
+    tagIds: [1],
     text: "Маленький принц живёт на крошечном астероиде, где есть три вулкана (два активных и один потухший) и растёт его Роза. Он ежедневно ухаживает за планетой: прочищает вулканы и вырывает ростки баобабов, чтобы те не разрушили астероид.\n\nЭто символ ответственности за свой мир и порядок в душе.",
   },
   {
     id: 2,
     title: "Баобабы как угроза",
-    tagId: 2,
+    tagIds: [2],
     text: "Баобабы — опасные растения, которые сначала выглядят безобидно, но со временем могут уничтожить целую планету. Принц предупреждает, что их нужно искоренять сразу.\n\nЭто метафора плохих привычек и разрушительных мыслей, которые важно замечать на ранней стадии.",
   },
   {
     id: 3,
     title: "Путешествие по планетам",
-    tagId: 2,
+    tagIds: [1, 2],
     text: "Каждая планета, которую посещает принц, населена одним взрослым персонажем, воплощающим человеческие пороки: власть, тщеславие, зависимость, жадность, слепое следование правилам.\n\nЭти эпизоды формируют сатирическую картину «взрослого мира» и подчёркивают одиночество людей.",
   },
 ];
@@ -1468,19 +1487,16 @@ function LoreTab() {
   const [editingNote, setEditingNote] = useState(false);
   const [noteDraft, setNoteDraft] = useState<LoreNote | null>(null);
 
-  // tag management
   const [showTagManager, setShowTagManager] = useState(false);
   const [newTagLabel, setNewTagLabel] = useState("");
   const [editingTagId, setEditingTagId] = useState<number | null>(null);
   const [editingTagLabel, setEditingTagLabel] = useState("");
 
-  // new note
   const [showNewNote, setShowNewNote] = useState(false);
   const [newNoteTitle, setNewNoteTitle] = useState("");
-  const [newNoteTag, setNewNoteTag] = useState<number>(tags[0]?.id ?? 1);
+  const [newNoteTags, setNewNoteTags] = useState<number[]>([]);
 
-  const filtered = activeTag ? notes.filter((n) => n.tagId === activeTag) : notes;
-
+  const filtered = activeTag ? notes.filter((n) => n.tagIds.includes(activeTag)) : notes;
   const tagById = (id: number) => tags.find((t) => t.id === id);
 
   const addTag = () => {
@@ -1501,18 +1517,26 @@ function LoreTab() {
     if (activeTag === id) setActiveTag(null);
   };
 
+  const toggleNoteTag = (tagId: number, current: number[], setter: (v: number[]) => void) => {
+    if (current.includes(tagId)) {
+      setter(current.filter((id) => id !== tagId));
+    } else if (current.length < 3) {
+      setter([...current, tagId]);
+    }
+  };
+
   const createNote = () => {
     if (!newNoteTitle.trim()) return;
-    const n: LoreNote = { id: Date.now(), title: newNoteTitle.trim(), tagId: newNoteTag, text: "" };
+    const n: LoreNote = { id: Date.now(), title: newNoteTitle.trim(), tagIds: newNoteTags, text: "" };
     setNotes([...notes, n]);
     setShowNewNote(false);
-    setNewNoteTitle("");
+    setNewNoteTitle(""); setNewNoteTags([]);
     openNoteDetail(n, true);
   };
 
   const openNoteDetail = (n: LoreNote, startEditing = false) => {
     setOpenNote(n);
-    setNoteDraft({ ...n });
+    setNoteDraft({ ...n, tagIds: [...n.tagIds] });
     setEditingNote(startEditing);
   };
 
@@ -1530,76 +1554,99 @@ function LoreTab() {
 
   // ── NOTE DETAIL ──
   if (openNote && noteDraft) {
-    const tag = tagById(openNote.tagId);
     return (
       <div className="animate-fade-in">
         <button onClick={() => setOpenNote(null)}
-          className="flex items-center gap-1.5 font-lora text-sm text-muted-foreground hover:text-foreground transition-colors mb-6">
+          className="flex items-center gap-1.5 font-lora text-sm text-muted-foreground hover:text-foreground transition-colors mb-5">
           <Icon name="ArrowLeft" size={15} />
           Все заметки
         </button>
 
-        <div className="flex items-start justify-between gap-3 mb-5">
-          <div className="flex-1">
-            {editingNote ? (
-              <input value={noteDraft.title}
-                onChange={(e) => setNoteDraft({ ...noteDraft, title: e.target.value })}
-                className="font-cormorant text-3xl font-light bg-transparent border-b border-border focus:outline-none focus:border-violet w-full pb-1"
-              />
-            ) : (
-              <h2 className="font-cormorant text-3xl font-light">{openNote.title}</h2>
-            )}
-            {tag && (
-              <div className="mt-2">
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          {/* Header */}
+          <div className="px-6 pt-6 pb-4 border-b border-border">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
                 {editingNote ? (
-                  <select value={noteDraft.tagId}
-                    onChange={(e) => setNoteDraft({ ...noteDraft, tagId: Number(e.target.value) })}
-                    className="font-lora text-xs bg-transparent border border-border rounded-full px-3 py-1 focus:outline-none">
-                    {tags.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-                  </select>
+                  <input value={noteDraft.title}
+                    onChange={(e) => setNoteDraft({ ...noteDraft, title: e.target.value })}
+                    className="font-cormorant text-3xl font-light bg-transparent border-b border-border focus:outline-none focus:border-violet w-full pb-1"
+                    autoFocus />
                 ) : (
-                  <span className="font-lora text-xs px-3 py-1 rounded-full"
-                    style={{ background: `${tag.color}22`, color: tag.color }}>
-                    {tag.label}
-                  </span>
+                  <h2 className="font-cormorant text-3xl font-light">{openNote.title}</h2>
                 )}
+                {/* Tags below title */}
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                  {editingNote ? (
+                    <>
+                      {tags.map((t) => {
+                        const active = noteDraft.tagIds.includes(t.id);
+                        return (
+                          <button key={t.id} type="button"
+                            onClick={() => toggleNoteTag(t.id, noteDraft.tagIds, (v) => setNoteDraft({ ...noteDraft, tagIds: v }))}
+                            className="font-lora text-xs px-2.5 py-1 rounded-full border transition-all"
+                            style={active
+                              ? { background: t.color, color: "#fff", borderColor: t.color }
+                              : { background: `${t.color}15`, color: t.color, borderColor: `${t.color}40` }
+                            }>
+                            {active ? "✓ " : ""}{t.label}
+                          </button>
+                        );
+                      })}
+                      {noteDraft.tagIds.length >= 3 && (
+                        <span className="font-lora text-[11px] text-muted-foreground self-center">макс. 3</span>
+                      )}
+                    </>
+                  ) : (
+                    openNote.tagIds.map((tid) => {
+                      const t = tagById(tid);
+                      return t ? (
+                        <span key={tid} className="font-lora text-xs px-2.5 py-1 rounded-full"
+                          style={{ background: `${t.color}20`, color: t.color }}>
+                          {t.label}
+                        </span>
+                      ) : null;
+                    })
+                  )}
+                </div>
               </div>
-            )}
+              <div className="flex gap-2 flex-shrink-0">
+                {!editingNote ? (
+                  <button onClick={() => setEditingNote(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border font-lora text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    <Icon name="Pencil" size={13} />
+                    Изменить
+                  </button>
+                ) : (
+                  <button onClick={saveNote}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-lora text-xs text-white transition-colors"
+                    style={{ background: 'hsl(var(--violet))' }}>
+                    <Icon name="Check" size={13} />
+                    Сохранить
+                  </button>
+                )}
+                <button onClick={() => deleteNote(openNote.id)}
+                  className="p-2 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors">
+                  <Icon name="Trash2" size={13} />
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="flex gap-2 flex-shrink-0">
-            {!editingNote ? (
-              <button onClick={() => setEditingNote(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border font-lora text-xs text-muted-foreground hover:text-foreground transition-colors">
-                <Icon name="Pencil" size={13} />
-                Изменить
-              </button>
-            ) : (
-              <button onClick={saveNote}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-lora text-xs text-white transition-colors"
-                style={{ background: 'hsl(var(--violet))' }}>
-                <Icon name="Check" size={13} />
-                Сохранить
-              </button>
-            )}
-            <button onClick={() => deleteNote(openNote.id)}
-              className="p-2 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors">
-              <Icon name="Trash2" size={13} />
-            </button>
-          </div>
-        </div>
 
-        <div className="p-6 rounded-xl border border-border bg-card min-h-48">
-          {editingNote ? (
-            <textarea value={noteDraft.text}
-              onChange={(e) => setNoteDraft({ ...noteDraft, text: e.target.value })}
-              rows={12}
-              className="w-full bg-transparent font-lora text-sm leading-7 resize-none focus:outline-none scroll-custom"
-              placeholder="Текст заметки..." />
-          ) : (
-            <p className="font-lora text-sm leading-7 whitespace-pre-wrap text-foreground">
-              {openNote.text || <span className="text-muted-foreground italic">Заметка пуста</span>}
-            </p>
-          )}
+          {/* Content */}
+          <div className="px-6 py-5">
+            {editingNote ? (
+              <textarea value={noteDraft.text}
+                onChange={(e) => setNoteDraft({ ...noteDraft, text: e.target.value })}
+                rows={12}
+                className="w-full bg-transparent font-lora text-sm leading-7 resize-none focus:outline-none scroll-custom"
+                placeholder="Текст заметки..." />
+            ) : (
+              <p className="font-lora text-sm leading-7 whitespace-pre-wrap text-foreground">
+                {openNote.text || <span className="text-muted-foreground italic">Заметка пуста</span>}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -1608,14 +1655,11 @@ function LoreTab() {
   // ── LIST VIEW ──
   return (
     <div className="space-y-5 animate-fade-in">
-      {/* Tags row */}
+      {/* Tags filter row */}
       <div className="flex items-center gap-2 flex-wrap">
-        <button
-          onClick={() => setActiveTag(null)}
+        <button onClick={() => setActiveTag(null)}
           className={`font-lora text-xs px-3 py-1.5 rounded-full border transition-all ${
-            activeTag === null
-              ? "border-transparent text-white"
-              : "border-border text-muted-foreground hover:text-foreground"
+            activeTag === null ? "border-transparent text-white" : "border-border text-muted-foreground hover:text-foreground"
           }`}
           style={activeTag === null ? { background: 'hsl(var(--violet))' } : {}}>
           Все
@@ -1640,25 +1684,30 @@ function LoreTab() {
 
       {/* Notes grid */}
       <div className="grid md:grid-cols-2 gap-4">
-        {filtered.map((note) => {
-          const tag = tagById(note.tagId);
-          return (
-            <button key={note.id}
-              onClick={() => openNoteDetail(note)}
-              className="text-left group p-5 rounded-xl border border-border bg-card hover-lift transition-all">
-              {tag && (
-                <span className="font-lora text-xs px-2 py-0.5 rounded-full mb-2 inline-block"
-                  style={{ background: `${tag.color}22`, color: tag.color }}>
-                  {tag.label}
-                </span>
-              )}
-              <h3 className="font-cormorant text-lg font-medium mb-1 group-hover:text-violet transition-colors">
-                {note.title}
-              </h3>
-              <p className="font-lora text-sm text-muted-foreground line-clamp-2">{note.text}</p>
-            </button>
-          );
-        })}
+        {filtered.map((note) => (
+          <button key={note.id}
+            onClick={() => openNoteDetail(note)}
+            className="text-left group p-5 rounded-xl border border-border bg-card hover-lift transition-all">
+            <h3 className="font-cormorant text-lg font-medium mb-1.5 group-hover:text-violet transition-colors">
+              {note.title}
+            </h3>
+            <p className="font-lora text-sm text-muted-foreground line-clamp-2 mb-3">{note.text}</p>
+            {/* Tags at bottom */}
+            {note.tagIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {note.tagIds.map((tid) => {
+                  const t = tagById(tid);
+                  return t ? (
+                    <span key={tid} className="font-lora text-[11px] px-2 py-0.5 rounded-full"
+                      style={{ background: `${t.color}18`, color: t.color }}>
+                      {t.label}
+                    </span>
+                  ) : null;
+                })}
+              </div>
+            )}
+          </button>
+        ))}
 
         <button onClick={() => setShowNewNote(true)}
           className="p-5 rounded-xl border-2 border-dashed border-border hover:border-violet transition-colors group flex flex-col items-center justify-center gap-2 min-h-24">
@@ -1748,19 +1797,24 @@ function LoreTab() {
                   placeholder="Название заметки..." autoFocus />
               </div>
               <div>
-                <label className="font-lora text-sm text-muted-foreground block mb-1.5">Ярлык</label>
+                <label className="font-lora text-sm text-muted-foreground block mb-1.5">
+                  Ярлыки <span className="text-muted-foreground/50">(до 3)</span>
+                </label>
                 <div className="flex gap-2 flex-wrap">
-                  {tags.map((t) => (
-                    <button key={t.id}
-                      onClick={() => setNewNoteTag(t.id)}
-                      className="font-lora text-xs px-3 py-1.5 rounded-full border transition-all"
-                      style={newNoteTag === t.id
-                        ? { background: t.color, color: "#fff", borderColor: t.color }
-                        : { background: `${t.color}18`, color: t.color, borderColor: `${t.color}44` }
-                      }>
-                      {t.label}
-                    </button>
-                  ))}
+                  {tags.map((t) => {
+                    const active = newNoteTags.includes(t.id);
+                    return (
+                      <button key={t.id} type="button"
+                        onClick={() => toggleNoteTag(t.id, newNoteTags, setNewNoteTags)}
+                        className="font-lora text-xs px-3 py-1.5 rounded-full border transition-all"
+                        style={active
+                          ? { background: t.color, color: "#fff", borderColor: t.color }
+                          : { background: `${t.color}18`, color: t.color, borderColor: `${t.color}44` }
+                        }>
+                        {t.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
