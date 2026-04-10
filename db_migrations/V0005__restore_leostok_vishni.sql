@@ -1,0 +1,1 @@
+UPDATE t_p73769905_zero_start_initiativ.books SET title = 'Лепесток вишни' WHERE id = 5;

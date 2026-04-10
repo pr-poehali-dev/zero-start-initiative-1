@@ -461,13 +461,6 @@ function BookDetail({
         </div>
       )}
 
-      <div className="mt-10 pt-6 border-t border-border/50 flex justify-end">
-        <button onClick={onDelete}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl font-lora text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/5 border border-transparent hover:border-destructive/20 transition-all">
-          <Icon name="Trash2" size={15} />
-          Удалить книгу
-        </button>
-      </div>
     </div>
   );
 }
