@@ -262,7 +262,7 @@ function BookDetail({
         </div>
       ) : (
         <div className="animate-fade-in" key={tab}>
-          {tab === "manuscript" && <ManuscriptTab initialText={book.manuscript ?? ""} onSave={(t) => onUpdate({ manuscript: t })} />}
+          {tab === "manuscript" && <ManuscriptTab key={book.id} bookId={book.id} initialText={book.manuscript ?? ""} onSave={(t) => onUpdate({ manuscript: t })} />}
           {tab === "synopsis" && <SynopsisTab initialText={book.synopsis ?? ""} onSave={(t) => onUpdate({ synopsis: t })} />}
           {tab === "characters" && <CharactersTab />}
           {tab === "plan" && <PlanTab />}
@@ -331,16 +331,34 @@ const editorStyles = `
   .rich-editor:focus { outline: none; }
 `;
 
-function ManuscriptTab({ initialText, onSave }: { initialText: string; onSave: (t: string) => void }) {
+// Разбираем manuscript из БД: JSON-массив глав или plain-text → одна глава
+function parseInitialChapters(raw: string): ManuscriptChapter[] {
+  if (!raw || !raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0 && "title" in parsed[0]) return parsed;
+  } catch (_e) { /* not JSON */ }
+  // plain-text → одна глава
+  return [{ id: 1, title: "Глава 1", content: raw }];
+}
+
+// Сериализуем главы для сохранения в БД
+function serializeChapters(chs: ManuscriptChapter[]): string {
+  return JSON.stringify(chs);
+}
+
+function ManuscriptTab({ initialText, onSave, bookId }: { initialText: string; onSave: (t: string) => void; bookId: number }) {
+  const initChapters = parseInitialChapters(initialText);
+  const isEmpty = initChapters.length === 0;
+
   const [view, setView] = useState<"chapters" | "full">("chapters");
-  const [chapters, setChapters] = useState<ManuscriptChapter[]>(DEMO_CHAPTERS);
-  const [activeChId, setActiveChId] = useState<number>(DEMO_CHAPTERS[0].id);
+  const [chapters, setChapters] = useState<ManuscriptChapter[]>(
+    isEmpty ? [] : initChapters
+  );
+  const [activeChId, setActiveChId] = useState<number>(isEmpty ? -1 : initChapters[0].id);
   const [editingChTitle, setEditingChTitle] = useState<number | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
-  const [fullText, setFullText] = useState(initialText);
-  const [fullSaved, setFullSaved] = useState(true);
   const editorRef = useRef<HTMLDivElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const styleRef = useRef<HTMLStyleElement | null>(null);
 
   // Inject editor styles once
@@ -351,27 +369,43 @@ function ManuscriptTab({ initialText, onSave }: { initialText: string; onSave: (
     styleRef.current = s;
   }
 
-  const activeCh = chapters.find((c) => c.id === activeChId) ?? chapters[0];
+  const activeCh = chapters.find((c) => c.id === activeChId) ?? null;
+
+  // Полный текст = сумма всех глав
+  const fullText = chapters.map((c) => `${c.title}\n\n${c.content}`).join("\n\n---\n\n");
+
+  // Сохраняем при каждом изменении глав
+  const saveChapters = (updated: ManuscriptChapter[]) => {
+    onSave(serializeChapters(updated));
+  };
 
   const updateChContent = (id: number, content: string) => {
-    setChapters((prev) => prev.map((c) => c.id === id ? { ...c, content } : c));
+    const updated = chapters.map((c) => c.id === id ? { ...c, content } : c);
+    setChapters(updated);
+    saveChapters(updated);
   };
 
   const saveChTitle = (id: number) => {
-    if (titleDraft.trim()) setChapters((prev) => prev.map((c) => c.id === id ? { ...c, title: titleDraft.trim() } : c));
+    if (!titleDraft.trim()) { setEditingChTitle(null); return; }
+    const updated = chapters.map((c) => c.id === id ? { ...c, title: titleDraft.trim() } : c);
+    setChapters(updated);
     setEditingChTitle(null);
+    saveChapters(updated);
   };
 
   const addChapter = () => {
     const newCh: ManuscriptChapter = { id: Date.now(), title: `Глава ${chapters.length + 1}`, content: "" };
-    setChapters([...chapters, newCh]);
+    const updated = [...chapters, newCh];
+    setChapters(updated);
     setActiveChId(newCh.id);
+    saveChapters(updated);
   };
 
   const deleteCh = (id: number) => {
-    const remaining = chapters.filter((c) => c.id !== id);
-    setChapters(remaining);
-    if (activeChId === id) setActiveChId(remaining[0]?.id ?? -1);
+    const updated = chapters.filter((c) => c.id !== id);
+    setChapters(updated);
+    if (activeChId === id) setActiveChId(updated[0]?.id ?? -1);
+    saveChapters(updated);
   };
 
   const moveCh = (id: number, dir: -1 | 1) => {
@@ -381,20 +415,12 @@ function ManuscriptTab({ initialText, onSave }: { initialText: string; onSave: (
     const arr = [...chapters];
     [arr[idx], arr[next]] = [arr[next], arr[idx]];
     setChapters(arr);
+    saveChapters(arr);
   };
 
   const execCmd = (cmd: string, val?: string) => {
     document.execCommand(cmd, false, val);
     editorRef.current?.focus();
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => { setFullText(ev.target?.result as string ?? ""); setFullSaved(false); };
-    reader.readAsText(file, "utf-8");
-    if (fileRef.current) fileRef.current.value = "";
   };
 
   const totalWords = chapters.reduce((s, c) => s + c.content.trim().split(/\s+/).filter(Boolean).length, 0);
@@ -406,11 +432,6 @@ function ManuscriptTab({ initialText, onSave }: { initialText: string; onSave: (
     const a = document.createElement("a");
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const downloadAll = () => {
-    const text = chapters.map((c) => `${c.title}\n\n${c.content}`).join("\n\n---\n\n");
-    downloadText(text, "рукопись.txt");
   };
 
   return (
@@ -482,6 +503,20 @@ function ManuscriptTab({ initialText, onSave }: { initialText: string; onSave: (
             </button>
           </div>
 
+          {/* Editor area — empty state */}
+          {!activeCh && (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-border">
+              <Icon name="FileText" size={32} className="text-muted-foreground/40" />
+              <p className="font-lora text-sm text-muted-foreground">Добавьте первую главу, чтобы начать</p>
+              <button onClick={addChapter}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-lora text-sm hover-lift transition-all"
+                style={{ background: 'hsl(var(--violet))', color: 'hsl(var(--primary-foreground))' }}>
+                <Icon name="Plus" size={15} />
+                Добавить главу
+              </button>
+            </div>
+          )}
+
           {/* Editor area */}
           {activeCh && (
             <div className="flex-1 flex flex-col rounded-xl border border-border overflow-hidden bg-card min-w-0">
@@ -539,38 +574,34 @@ function ManuscriptTab({ initialText, onSave }: { initialText: string; onSave: (
         <div className="rounded-xl border border-border overflow-hidden bg-card">
           <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/20">
             <p className="font-lora text-xs text-muted-foreground/60 italic">
-              Рекомендуем сохранять результат в Google Docs или Word для дальнейшего оформления и редактуры.
+              Собрано из всех глав. Рекомендуем сохранять в Google Docs или Word для дальнейшего оформления и редактуры.
             </p>
-            <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-              <button onClick={() => downloadText(fullText, "рукопись.txt")}
-                className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
-                <Icon name="Download" size={13} />
-                Скачать .txt
-              </button>
-              {!fullSaved && (
-                <button onClick={() => { onSave(fullText); setFullSaved(true); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-lora text-xs text-white"
-                  style={{ background: 'hsl(var(--violet))' }}>
-                  <Icon name="Save" size={12} />
-                  Сохранить
-                </button>
-              )}
-            </div>
+            <button onClick={() => downloadText(fullText, "рукопись.txt")}
+              className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap ml-4 flex-shrink-0">
+              <Icon name="Download" size={13} />
+              Скачать .txt
+            </button>
           </div>
-          <textarea
-            value={fullText}
-            onChange={(e) => { setFullText(e.target.value); setFullSaved(false); }}
-            className="w-full resize-none focus:outline-none scroll-custom px-12 py-8"
-            style={{ fontFamily: '"Times New Roman", Times, serif', fontSize: '14pt', lineHeight: '1.6', minHeight: '520px', background: 'hsl(var(--card))' }}
-            placeholder="Вставьте или загрузите полный текст рукописи..."
-          />
+          {chapters.length === 0 ? (
+            <div className="px-12 py-16 text-center">
+              <p className="font-lora text-sm text-muted-foreground italic">Добавьте главы во вкладке «По главам»</p>
+            </div>
+          ) : (
+            <div className="px-12 py-8 scroll-custom overflow-y-auto"
+              style={{ fontFamily: '"Times New Roman", Times, serif', fontSize: '14pt', lineHeight: '1.6', minHeight: '400px', maxHeight: '600px' }}>
+              {chapters.map((ch, i) => (
+                <div key={ch.id} className={i > 0 ? "mt-8 pt-6 border-t border-border/40" : ""}>
+                  <h3 style={{ fontFamily: '"Times New Roman", serif', fontSize: '16pt', fontWeight: 'bold', marginBottom: '1em' }}>
+                    {ch.title}
+                  </h3>
+                  <p style={{ whiteSpace: 'pre-wrap' }}>{ch.content}</p>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="px-5 py-2 border-t border-border bg-muted/20 flex gap-4">
-            <span className="font-lora text-xs text-muted-foreground">
-              {fullText.trim().split(/\s+/).filter(Boolean).length.toLocaleString("ru")} слов
-            </span>
-            <span className="font-lora text-xs text-muted-foreground">
-              {fullText.replace(/\s/g, "").length.toLocaleString("ru")} знаков
-            </span>
+            <span className="font-lora text-xs text-muted-foreground">{totalWords.toLocaleString("ru")} слов</span>
+            <span className="font-lora text-xs text-muted-foreground">{totalChars.toLocaleString("ru")} знаков</span>
           </div>
         </div>
       )}

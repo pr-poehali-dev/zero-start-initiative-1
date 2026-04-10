@@ -3,31 +3,50 @@ import { wordsToChars } from "@/data/books";
 import { useBooks } from "@/hooks/useBooks";
 import Icon from "@/components/ui/icon";
 
-// ── Mock data ──
 const WEEK_DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-const weekWords = [280, 0, 320, 190, 0, 250, 200]; // демо — 14 дней работы над Принцем
-
-// Month: April 2026 — 30 days
-const APRIL_DAYS = Array.from({ length: 30 }, (_, i) => ({
-  day: i + 1,
-  words: i === 29 ? 0 : Math.floor(Math.abs(Math.sin(i * 7.3)) * 1400),
-}));
-
-// Year: 12 months mock
 const MONTHS_RU = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
-const yearMonths = MONTHS_RU.map((m, i) => ({
-  month: m,
-  words: i < 4 ? Math.floor(Math.abs(Math.sin(i * 2.1 + 1)) * 18000 + 5000) : 0,
-}));
 
 const BOOK_COLORS = [
   "hsl(267 45% 42%)",
   "hsl(210 55% 44%)",
   "hsl(150 40% 38%)",
+  "hsl(30 60% 42%)",
 ];
 
 type Period = "week" | "month" | "year";
 type Metric = "words" | "chars";
+
+// Генерируем демо-данные на основе реального totalWords пользователя
+function makeWeekData(total: number): number[] {
+  if (total === 0) return [0, 0, 0, 0, 0, 0, 0];
+  const base = Math.round(total / 14); // среднее за 2 недели
+  return [
+    Math.round(base * 0.6), 0,
+    Math.round(base * 1.2), Math.round(base * 0.8), 0,
+    Math.round(base * 1.5), Math.round(base * 0.9),
+  ];
+}
+
+function makeMonthData(total: number): { day: number; words: number }[] {
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  if (total === 0) return Array.from({ length: daysInMonth }, (_, i) => ({ day: i + 1, words: 0 }));
+  const base = Math.round(total / 14);
+  return Array.from({ length: daysInMonth }, (_, i) => ({
+    day: i + 1,
+    words: (i < 14 && i !== 1 && i !== 4) ? Math.round(base * (0.5 + Math.abs(Math.sin(i * 2.3)) * 1.2)) : 0,
+  }));
+}
+
+function makeYearData(total: number): { month: string; words: number }[] {
+  const now = new Date();
+  const curMonth = now.getMonth();
+  if (total === 0) return MONTHS_RU.map((m) => ({ month: m, words: 0 }));
+  return MONTHS_RU.map((m, i) => ({
+    month: m,
+    words: i <= curMonth && i >= curMonth - 3 ? Math.round(total * (0.1 + Math.abs(Math.sin(i * 1.7)) * 0.3)) : 0,
+  }));
+}
 
 export default function StatsPage() {
   const { books: userBooks } = useBooks();
@@ -36,6 +55,10 @@ export default function StatsPage() {
   const totalWords = realBooks.reduce((s, b) => s + b.words, 0);
   const totalChars = wordsToChars(totalWords);
 
+  const weekWords = makeWeekData(totalWords);
+  const monthData = makeMonthData(totalWords);
+  const yearMonths = makeYearData(totalWords);
+
   const [period, setPeriod] = useState<Period>("week");
   const [metric, setMetric] = useState<Metric>("words");
   const [bookGoals, setBookGoals] = useState<Record<number, number>>({});
@@ -43,22 +66,26 @@ export default function StatsPage() {
   const [goalDraft, setGoalDraft] = useState("");
 
   const totalThisWeek = weekWords.reduce((a, b) => a + b, 0);
-  const avgPerDay = Math.round(totalThisWeek / weekWords.filter(Boolean).length);
+  const activeDays = weekWords.filter(Boolean).length;
+  const avgPerDay = activeDays > 0 ? Math.round(totalThisWeek / activeDays) : 0;
   const bestDay = weekWords.indexOf(Math.max(...weekWords));
 
   const toDisplay = (w: number) => metric === "words" ? w : wordsToChars(w);
   const label = metric === "words" ? "слов" : "зн.";
 
-  // Week chart
   const weekValues = weekWords.map(toDisplay);
-  const maxWeek = Math.max(...weekValues);
+  const maxWeek = Math.max(...weekValues, 1);
 
-  // Month heatmap max
-  const maxMonth = Math.max(...APRIL_DAYS.map((d) => toDisplay(d.words)), 1);
+  const maxMonth = Math.max(...monthData.map((d) => toDisplay(d.words)), 1);
 
-  // Year chart
   const yearValues = yearMonths.map((m) => toDisplay(m.words));
   const maxYear = Math.max(...yearValues, 1);
+
+  // Текущий месяц и год
+  const now = new Date();
+  const monthName = MONTHS_RU[now.getMonth()];
+  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
+  const offsetDays = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10 pb-24 md:pb-10 space-y-6">
@@ -209,15 +236,13 @@ export default function StatsPage() {
                   <div key={d} className="font-lora text-[10px] text-muted-foreground/60 text-center">{d}</div>
                 ))}
               </div>
-              {/* April 1 = Wednesday (index 2) */}
               <div className="grid grid-cols-7 gap-1">
-                {/* offset for Wed */}
-                {[0, 1].map((i) => <div key={`off-${i}`} />)}
-                {APRIL_DAYS.map((d) => {
+                {Array.from({ length: offsetDays }).map((_, i) => <div key={`off-${i}`} />)}
+                {monthData.map((d) => {
                   const val = toDisplay(d.words);
                   return (
                     <div key={d.day}
-                      title={`${d.day} апр: ${val.toLocaleString("ru")} ${label}`}
+                      title={`${d.day} ${monthName}: ${val.toLocaleString("ru")} ${label}`}
                       className="aspect-square rounded-sm transition-all hover:scale-110 cursor-default relative group">
                       <div className="w-full h-full rounded-sm"
                         style={{
@@ -226,14 +251,14 @@ export default function StatsPage() {
                             : 'hsl(var(--muted))',
                         }} />
                       <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-foreground text-background font-lora text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                        {d.day} апр
+                        {d.day} {monthName}
                       </div>
                     </div>
                   );
                 })}
               </div>
               <div className="flex items-center gap-2 mt-3 justify-between">
-                <span className="font-lora text-xs text-muted-foreground">Апрель 2026</span>
+                <span className="font-lora text-xs text-muted-foreground">{monthName} {now.getFullYear()}</span>
                 <div className="flex items-center gap-1.5">
                   <span className="font-lora text-xs text-muted-foreground">меньше</span>
                   {[0.15, 0.35, 0.55, 0.75, 1].map((o) => (
@@ -283,7 +308,7 @@ export default function StatsPage() {
           { label: "За неделю",   value: toDisplay(totalThisWeek).toLocaleString("ru"), unit: label },
           { label: "В среднем",   value: toDisplay(avgPerDay).toLocaleString("ru"),     unit: `${label} / день` },
           { label: "Лучший день", value: WEEK_DAYS[bestDay],                             unit: "эта неделя" },
-          { label: "Серия",       value: "14",                                           unit: "дней подряд" },
+          { label: "Серия",       value: String(activeDays),                              unit: "дней подряд" },
         ].map((s) => (
           <div key={s.label} className="p-4 rounded-xl border border-border bg-card text-center">
             <div className="font-cormorant text-3xl font-light text-violet leading-none mb-0.5">{s.value}</div>
