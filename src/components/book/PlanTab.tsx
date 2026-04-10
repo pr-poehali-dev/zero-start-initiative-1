@@ -44,8 +44,23 @@ const PLAN_SECTIONS_DEFAULT: PlanSection[] = [
   ]},
 ];
 
-export default function PlanTab() {
-  const [sections, setSections] = useState<PlanSection[]>(PLAN_SECTIONS_DEFAULT);
+export default function PlanTab({ bookId }: { bookId: number }) {
+  const storageKey = `scriptorium_plan_${bookId}`;
+  const loadSections = (): PlanSection[] => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) return JSON.parse(raw);
+    } catch (_e) { /* ignore */ }
+    return [];
+  };
+  const saveSections = (secs: PlanSection[]) => {
+    localStorage.setItem(storageKey, JSON.stringify(secs));
+  };
+
+  const [sections, setSections] = useState<PlanSection[]>(() => {
+    const saved = loadSections();
+    return saved.length > 0 ? saved : PLAN_SECTIONS_DEFAULT.map((s) => ({ ...s, episodes: [] }));
+  });
   const [editingEp, setEditingEp] = useState<{ sectionId: string; ep: PlanEpisode } | null>(null);
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
@@ -54,16 +69,26 @@ export default function PlanTab() {
   const totalEps = sections.reduce((s, sec) => s + sec.episodes.length, 0);
   const doneEps  = sections.reduce((s, sec) => s + sec.episodes.filter((e) => e.done).length, 0);
 
+  const updateSections = (updated: PlanSection[]) => {
+    setSections(updated);
+    saveSections(updated);
+  };
+
   const toggleDone = (sectionId: string, epId: number) => {
-    setSections(sections.map((sec) =>
-      sec.id !== sectionId ? sec : { ...sec, episodes: sec.episodes.map((e) => e.id === epId ? { ...e, done: !e.done } : e) }
+    updateSections(sections.map((sec) =>
+      sec.id !== sectionId ? sec : {
+        ...sec,
+        episodes: sec.episodes.map((e) => e.id === epId ? { ...e, done: !e.done } : e),
+      }
     ));
   };
 
   const addEpisode = (sectionId: string) => {
     if (!newTitle.trim()) return;
     const ep: PlanEpisode = { id: Date.now(), title: newTitle.trim(), description: newDesc.trim(), done: false };
-    setSections(sections.map((sec) => sec.id !== sectionId ? sec : { ...sec, episodes: [...sec.episodes, ep] }));
+    updateSections(sections.map((sec) =>
+      sec.id !== sectionId ? sec : { ...sec, episodes: [...sec.episodes, ep] }
+    ));
     setAddingTo(null);
     setNewTitle(""); setNewDesc("");
   };
@@ -71,27 +96,34 @@ export default function PlanTab() {
   const saveEdit = () => {
     if (!editingEp) return;
     const { sectionId, newSectionId, ep } = editingEp as typeof editingEp & { newSectionId: string };
+    let updated: PlanSection[];
     if (newSectionId && newSectionId !== sectionId) {
-      setSections(sections.map((sec) => {
+      updated = sections.map((sec) => {
         if (sec.id === sectionId) return { ...sec, episodes: sec.episodes.filter((e) => e.id !== ep.id) };
         if (sec.id === newSectionId) return { ...sec, episodes: [...sec.episodes, ep] };
         return sec;
-      }));
+      });
     } else {
-      setSections(sections.map((sec) =>
-        sec.id !== sectionId ? sec : { ...sec, episodes: sec.episodes.map((e) => e.id === ep.id ? ep : e) }
-      ));
+      updated = sections.map((sec) =>
+        sec.id !== sectionId ? sec : {
+          ...sec,
+          episodes: sec.episodes.map((e) => e.id === ep.id ? ep : e),
+        }
+      );
     }
+    updateSections(updated);
     setEditingEp(null);
   };
 
   const deleteEp = (sectionId: string, epId: number) => {
-    setSections(sections.map((sec) => sec.id !== sectionId ? sec : { ...sec, episodes: sec.episodes.filter((e) => e.id !== epId) }));
+    updateSections(sections.map((sec) =>
+      sec.id !== sectionId ? sec : { ...sec, episodes: sec.episodes.filter((e) => e.id !== epId) }
+    ));
     setEditingEp(null);
   };
 
   const moveEp = (sectionId: string, epId: number, dir: -1 | 1) => {
-    setSections(sections.map((sec) => {
+    updateSections(sections.map((sec) => {
       if (sec.id !== sectionId) return sec;
       const eps = [...sec.episodes];
       const idx = eps.findIndex((e) => e.id === epId);
@@ -138,31 +170,32 @@ export default function PlanTab() {
                   className={`grid grid-cols-[2rem_1fr_2fr_6rem] gap-3 px-4 py-3 items-start transition-colors ${ep.done ? "bg-muted/20" : "bg-card"}`}>
                   <button onClick={() => toggleDone(sec.id, ep.id)}
                     className="mt-0.5 w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-all"
-                    style={ep.done ? { background: sec.color, borderColor: sec.color } : { borderColor: `${sec.color}60` }}>
+                    style={ep.done
+                      ? { background: sec.color, borderColor: sec.color }
+                      : { background: "transparent", borderColor: 'hsl(var(--border))' }
+                    }>
                     {ep.done && <Icon name="Check" size={11} className="text-white" />}
                   </button>
                   <span className={`font-lora text-sm leading-snug ${ep.done ? "line-through text-muted-foreground" : "text-foreground"}`}>
                     {ep.title}
                   </span>
-                  <span className="font-lora text-sm text-muted-foreground leading-snug">
-                    {ep.description || <span className="italic text-muted-foreground/40">—</span>}
-                  </span>
-                  <div className="flex gap-0.5 justify-end items-start">
+                  <span className="font-lora text-xs text-muted-foreground leading-relaxed">{ep.description}</span>
+                  <div className="flex items-center gap-0.5 justify-end">
                     <button onClick={() => moveEp(sec.id, ep.id, -1)} disabled={epIdx === 0}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-25">
-                      <Icon name="ChevronUp" size={12} />
+                      className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors">
+                      <Icon name="ChevronUp" size={13} />
                     </button>
                     <button onClick={() => moveEp(sec.id, ep.id, 1)} disabled={epIdx === sec.episodes.length - 1}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-25">
-                      <Icon name="ChevronDown" size={12} />
+                      className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-20 transition-colors">
+                      <Icon name="ChevronDown" size={13} />
                     </button>
-                    <button onClick={() => setEditingEp({ sectionId: sec.id, newSectionId: sec.id, ep: { ...ep } } as Parameters<typeof setEditingEp>[0])}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                      <Icon name="Pencil" size={12} />
+                    <button onClick={() => setEditingEp({ sectionId: sec.id, ep })}
+                      className="p-1 text-muted-foreground hover:text-foreground transition-colors">
+                      <Icon name="Pencil" size={13} />
                     </button>
                     <button onClick={() => deleteEp(sec.id, ep.id)}
-                      className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted transition-colors">
-                      <Icon name="Trash2" size={12} />
+                      className="p-1 text-muted-foreground hover:text-destructive transition-colors">
+                      <Icon name="Trash2" size={13} />
                     </button>
                   </div>
                 </div>

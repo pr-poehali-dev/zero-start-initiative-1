@@ -11,78 +11,47 @@ interface Character {
 }
 
 const QUESTIONNAIRE_FIELDS = [
-  { key: "fullname",      label: "Полное имя / псевдоним" },
-  { key: "age",           label: "Возраст и дата рождения" },
-  { key: "appearance",    label: "Внешность (рост, телосложение, особые черты)" },
-  { key: "personality",   label: "Характер и темперамент" },
-  { key: "background",    label: "История / прошлое" },
-  { key: "family",        label: "Семья и близкие" },
-  { key: "motivation",    label: "Главная цель / мотивация" },
-  { key: "fear",          label: "Главный страх" },
-  { key: "secret",        label: "Тайна, которую скрывает" },
-  { key: "speech",        label: "Манера речи и любимые выражения" },
-  { key: "habits",        label: "Привычки и странности" },
-  { key: "skills",        label: "Способности и таланты" },
-  { key: "weakness",      label: "Слабости и уязвимости" },
+  { key: "fullname",     label: "Полное имя / псевдоним" },
+  { key: "age",          label: "Возраст и дата рождения" },
+  { key: "appearance",   label: "Внешность (рост, телосложение, особые черты)" },
+  { key: "personality",  label: "Характер и темперамент" },
+  { key: "background",   label: "История / прошлое" },
+  { key: "family",       label: "Семья и близкие" },
+  { key: "motivation",   label: "Главная цель / мотивация" },
+  { key: "fear",         label: "Главный страх" },
+  { key: "secret",       label: "Тайна, которую скрывает" },
+  { key: "speech",       label: "Манера речи и любимые выражения" },
+  { key: "habits",       label: "Привычки и странности" },
+  { key: "skills",       label: "Способности и таланты" },
+  { key: "weakness",     label: "Слабости и уязвимости" },
   { key: "relationships", label: "Отношения с другими героями" },
-  { key: "arc",           label: "Как меняется по ходу истории" },
+  { key: "arc",          label: "Как меняется по ходу истории" },
 ];
 
 const ROLES = [
   { label: "Главный герой",    color: "hsl(267 45% 38%)" },
   { label: "Герой-помощник",   color: "hsl(150 40% 38%)" },
   { label: "Любовный интерес", color: "hsl(330 45% 42%)" },
-  { label: "Антагонист",       color: "hsl(0 55% 45%)" },
+  { label: "Антагонист",       color: "hsl(0 55% 45%)"  },
   { label: "Второстепенный",   color: "hsl(210 40% 45%)" },
 ];
 
 const ROLE_COLORS: Record<string, string> = Object.fromEntries(ROLES.map((r) => [r.label, r.color]));
 
-const DEFAULT_CHARS: Character[] = [
-  {
-    id: 1,
-    name: "Маленький принц",
-    role: "Главный герой",
-    photo: null,
-    freeText: "Загадочный мальчик с крошечной планеты (астероид B-612). Наивен, искренен, задаёт простые, но глубокие вопросы, которые заставляют задуматься о смысле жизни. Его путешествие по планетам — способ понять людей и самого себя. Через него автор показывает, как важно сохранять детский взгляд на мир — чистый, открытый и честный.",
-    questionnaire: {
-      fullname: "Маленький принц (имя не называется)",
-      appearance: "Маленький золотоволосый мальчик, хрупкий и лёгкий",
-      personality: "Наивный, искренний, прямолинейный, задумчивый. Не терпит уклончивых ответов.",
-      background: "Живёт один на астероиде B-612, ухаживает за своей Розой и тремя вулканами",
-      motivation: "Понять людей и найти настоящую дружбу; вернуться к своей Розе",
-      fear: "Что его Роза погибнет без него и что он не успеет вернуться",
-      arc: "От наивного одиночества через разочарование во взрослых — к осознанию ценности любви и ответственности",
-    },
-  },
-  {
-    id: 2,
-    name: "Пилот",
-    role: "Герой-помощник",
-    photo: null,
-    freeText: "Взрослый человек, потерпевший крушение в пустыне. Его прототип — сам Антуан де Сент-Экзюпери. Сначала мыслит как типичный взрослый, но благодаря Маленькому принцу начинает заново учиться видеть мир сердцем. Пилот — связующее звено между миром взрослых и миром детства.",
-    questionnaire: {
-      fullname: "Пилот (рассказчик, имя не называется)",
-      background: "В детстве мечтал стать художником, но взрослые отговорили его. Стал лётчиком.",
-      motivation: "Починить самолёт и выжить в пустыне; но постепенно — понять и сохранить дружбу с Принцем",
-      arc: "От закрытого «взрослого» мышления к способности снова видеть главное — сердцем",
-    },
-  },
-  {
-    id: 3,
-    name: "Лис",
-    role: "Второстепенный",
-    photo: null,
-    freeText: "Один из самых важных персонажей с точки зрения смысла истории. Лис учит Маленького принца «приручению» — созданию настоящей связи между существами. Именно он формулирует ключевую мысль книги: «Мы в ответе за тех, кого приручили» и объясняет, что истинная ценность рождается из любви, времени и заботы.",
-    questionnaire: {
-      motivation: "Быть приручённым — обрести смысл в жизни через связь с другим существом",
-      arc: "Показывает Принцу, что дружба требует времени и делает уникальным",
-    },
-  },
-];
+export default function CharactersTab({ bookId }: { bookId: number }) {
+  const storageKey = `scriptorium_chars_${bookId}`;
+  const loadChars = (): Character[] => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) return JSON.parse(raw);
+    } catch (_e) { /* ignore */ }
+    return [];
+  };
+  const saveChars = (chars: Character[]) => {
+    localStorage.setItem(storageKey, JSON.stringify(chars));
+  };
 
-export default function CharactersTab() {
-  const [characters, setCharacters] = useState<Character[]>(DEFAULT_CHARS);
+  const [characters, setCharacters] = useState<Character[]>(loadChars);
   const [view, setView] = useState<"list" | "card" | "questionnaire">("list");
   const [selected, setSelected] = useState<Character | null>(null);
   const [editing, setEditing] = useState(false);
@@ -100,15 +69,26 @@ export default function CharactersTab() {
 
   const saveEdits = () => {
     if (!draft) return;
-    setCharacters((prev) => prev.map((c) => (c.id === draft.id ? draft : c)));
+    const updated = characters.map((c) => (c.id === draft.id ? draft : c));
+    setCharacters(updated);
+    saveChars(updated);
     setSelected(draft);
     setEditing(false);
   };
 
   const createCharacter = () => {
     if (!newName.trim()) return;
-    const nc: Character = { id: Date.now(), name: newName.trim(), role: newRole, photo: null, freeText: "", questionnaire: {} };
-    setCharacters((prev) => [...prev, nc]);
+    const nc: Character = {
+      id: Date.now(),
+      name: newName.trim(),
+      role: newRole,
+      photo: null,
+      freeText: "",
+      questionnaire: {},
+    };
+    const updated = [...characters, nc];
+    setCharacters(updated);
+    saveChars(updated);
     setShowNew(false);
     setNewName("");
     openCard(nc, "card");
@@ -116,12 +96,13 @@ export default function CharactersTab() {
   };
 
   const deleteCharacter = (id: number) => {
-    setCharacters((prev) => prev.filter((c) => c.id !== id));
+    const updated = characters.filter((c) => c.id !== id);
+    setCharacters(updated);
+    saveChars(updated);
     setView("list");
     setSelected(null);
   };
 
-  // ── LIST VIEW ──
   if (view === "list") {
     return (
       <div className="space-y-4 animate-fade-in">
@@ -143,8 +124,8 @@ export default function CharactersTab() {
                   )}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-cormorant text-lg font-medium leading-none mb-1">{c.name}</h3>
-                    <span className="font-lora text-xs px-2 py-0.5 rounded-full inline-block"
-                      style={{ background: `${color}22`, color }}>
+                    <span className="font-lora text-xs px-2 py-0.5 rounded-full inline-block border"
+                      style={{ background: `${color}18`, color, borderColor: `${color}55` }}>
                       {c.role}
                     </span>
                   </div>
@@ -165,10 +146,13 @@ export default function CharactersTab() {
               </div>
             );
           })}
+
           <button onClick={() => setShowNew(true)}
             className="p-5 rounded-xl border-2 border-dashed border-border hover:border-violet transition-colors group flex flex-col items-center justify-center gap-2 min-h-32">
             <Icon name="UserPlus" size={22} className="text-muted-foreground group-hover:text-violet transition-colors" />
-            <span className="font-lora text-sm text-muted-foreground group-hover:text-violet transition-colors">Добавить персонажа</span>
+            <span className="font-lora text-sm text-muted-foreground group-hover:text-violet transition-colors">
+              Добавить персонажа
+            </span>
           </button>
         </div>
 
@@ -186,16 +170,20 @@ export default function CharactersTab() {
                 <div>
                   <label className="font-lora text-sm text-muted-foreground block mb-1.5">Роль</label>
                   <div className="flex flex-wrap gap-2">
-                    {ROLES.map((r) => (
-                      <button key={r.label} type="button" onClick={() => setNewRole(r.label)}
-                        className="font-lora text-xs px-3 py-1.5 rounded-full border transition-all"
-                        style={newRole === r.label
-                          ? { background: r.color, color: "#fff", borderColor: r.color }
-                          : { background: `${r.color}18`, color: r.color, borderColor: `${r.color}44` }
-                        }>
-                        {r.label}
-                      </button>
-                    ))}
+                    {ROLES.map((r) => {
+                      const isActive = newRole === r.label;
+                      return (
+                        <button key={r.label} type="button"
+                          onClick={() => setNewRole(r.label)}
+                          className="font-lora text-xs px-3 py-1.5 rounded-full border transition-all"
+                          style={isActive
+                            ? { background: r.color, color: "#fff", borderColor: r.color }
+                            : { background: "transparent", color: r.color, borderColor: `${r.color}60` }
+                          }>
+                          {r.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -244,20 +232,24 @@ export default function CharactersTab() {
           <h2 className="font-cormorant text-3xl font-light">{selected.name}</h2>
           {editing ? (
             <div className="flex flex-wrap gap-1.5 mt-2">
-              {ROLES.map((r) => (
-                <button key={r.label} type="button" onClick={() => setDraft({ ...draft, role: r.label })}
-                  className="font-lora text-xs px-2.5 py-1 rounded-full border transition-all"
-                  style={draft.role === r.label
-                    ? { background: r.color, color: "#fff", borderColor: r.color }
-                    : { background: `${r.color}15`, color: r.color, borderColor: `${r.color}40` }
-                  }>
-                  {r.label}
-                </button>
-              ))}
+              {ROLES.map((r) => {
+                const isActive = draft.role === r.label;
+                return (
+                  <button key={r.label} type="button"
+                    onClick={() => setDraft({ ...draft, role: r.label })}
+                    className="font-lora text-xs px-2.5 py-1 rounded-full border transition-all"
+                    style={isActive
+                      ? { background: r.color, color: "#fff", borderColor: r.color }
+                      : { background: "transparent", color: r.color, borderColor: `${r.color}60` }
+                    }>
+                    {r.label}
+                  </button>
+                );
+              })}
             </div>
           ) : (
-            <span className="font-lora text-xs px-2 py-0.5 rounded-full mt-1 inline-block"
-              style={{ background: `${color}22`, color }}>
+            <span className="font-lora text-xs px-2.5 py-0.5 rounded-full mt-1 inline-block border"
+              style={{ background: `${color}12`, color, borderColor: `${color}55` }}>
               {selected.role}
             </span>
           )}
@@ -271,12 +263,18 @@ export default function CharactersTab() {
             </button>
           )}
           {editing && (
-            <button onClick={saveEdits}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-lora text-xs text-white transition-colors"
-              style={{ background: 'hsl(var(--violet))' }}>
-              <Icon name="Check" size={13} />
-              Сохранить
-            </button>
+            <>
+              <button onClick={saveEdits}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-lora text-xs text-white transition-colors"
+                style={{ background: 'hsl(var(--violet))' }}>
+                <Icon name="Check" size={13} />
+                Сохранить
+              </button>
+              <button onClick={() => { setDraft({ ...selected, questionnaire: { ...selected.questionnaire } }); setEditing(false); }}
+                className="px-3 py-2 rounded-lg border border-border font-lora text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Отмена
+              </button>
+            </>
           )}
           <button onClick={() => deleteCharacter(selected.id)}
             className="p-2 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors">
@@ -288,14 +286,15 @@ export default function CharactersTab() {
       <div className="flex gap-1 p-1 bg-muted rounded-xl mb-6 w-fit">
         {(["card", "questionnaire"] as const).map((v) => (
           <button key={v} onClick={() => setView(v)}
-            className={`px-4 py-1.5 rounded-lg font-lora text-xs transition-all ${view === v ? "text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+            className={`px-4 py-1.5 rounded-lg font-lora text-xs transition-all ${
+              view === v ? "text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
             style={view === v ? { background: 'hsl(var(--violet))' } : {}}>
             {v === "card" ? "Карточка" : `Анкета · ${filled}/${QUESTIONNAIRE_FIELDS.length}`}
           </button>
         ))}
       </div>
 
-      {/* CARD */}
       {view === "card" && (
         <div className="space-y-4">
           <div className="p-5 rounded-xl border border-border bg-card">
@@ -305,7 +304,8 @@ export default function CharactersTab() {
                   <div className="relative group w-24 h-32 rounded-xl overflow-hidden border border-border">
                     <img src={draft.photo} alt={draft.name} className="w-full h-full object-cover" />
                     {editing && (
-                      <button onClick={() => setDraft({ ...draft, photo: null })}
+                      <button
+                        onClick={() => setDraft({ ...draft, photo: null })}
                         className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                         <Icon name="Trash2" size={16} className="text-white" />
                       </button>
@@ -343,6 +343,7 @@ export default function CharactersTab() {
               </div>
             </div>
           </div>
+
           {QUESTIONNAIRE_FIELDS.filter((f) => draft.questionnaire[f.key]).length > 0 && (
             <div className="p-5 rounded-xl border border-border bg-muted/30">
               <p className="font-lora text-xs text-muted-foreground mb-3">Из анкеты</p>
@@ -362,7 +363,6 @@ export default function CharactersTab() {
         </div>
       )}
 
-      {/* QUESTIONNAIRE */}
       {view === "questionnaire" && (
         <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'hsl(var(--violet) / 0.3)' }}>
           <div className="px-7 py-6" style={{ background: 'linear-gradient(135deg, hsl(267 50% 30%) 0%, hsl(267 45% 42%) 100%)' }}>
@@ -396,25 +396,38 @@ export default function CharactersTab() {
               </div>
             </div>
           </div>
+
           <div className="bg-card divide-y divide-border">
             {QUESTIONNAIRE_FIELDS.map((field, i) => (
               <div key={field.key} className="grid grid-cols-[1.5rem_10rem_1fr] items-center gap-3 px-6 py-3">
                 <span className="font-lora text-xs text-center flex-shrink-0"
-                  style={{ color: 'hsl(var(--violet) / 0.5)' }}>{i + 1}</span>
-                <span className="font-lora text-xs text-muted-foreground leading-tight">{field.label}</span>
+                  style={{ color: 'hsl(var(--violet) / 0.5)' }}>
+                  {i + 1}
+                </span>
+                <span className="font-lora text-xs text-muted-foreground leading-tight">
+                  {field.label}
+                </span>
                 {editing ? (
-                  <input value={draft.questionnaire[field.key] ?? ""}
-                    onChange={(e) => setDraft({ ...draft, questionnaire: { ...draft.questionnaire, [field.key]: e.target.value } })}
+                  <input
+                    value={draft.questionnaire[field.key] ?? ""}
+                    onChange={(e) => setDraft({
+                      ...draft,
+                      questionnaire: { ...draft.questionnaire, [field.key]: e.target.value }
+                    })}
                     className="font-lora text-sm bg-transparent focus:outline-none border-b border-border focus:border-violet/50 transition-colors py-0.5 w-full"
-                    placeholder="..." />
+                    placeholder="..."
+                  />
                 ) : (
-                  <span className={`font-lora text-sm ${draft.questionnaire[field.key] ? "text-foreground" : "text-muted-foreground/30 italic"}`}>
+                  <span className={`font-lora text-sm ${
+                    draft.questionnaire[field.key] ? "text-foreground" : "text-muted-foreground/30 italic"
+                  }`}>
                     {draft.questionnaire[field.key] || "—"}
                   </span>
                 )}
               </div>
             ))}
           </div>
+
           <div className="px-6 py-3 border-t border-border flex justify-between items-center bg-muted/20">
             <span className="font-cormorant text-xs italic text-muted-foreground">Скрипторий · Анкета персонажа</span>
             <span className="font-lora text-xs text-muted-foreground">{new Date().getFullYear()}</span>
