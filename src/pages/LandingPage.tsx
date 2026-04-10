@@ -62,7 +62,7 @@ export default function LandingPage({ onLogin, onRegister }: Props) {
       {/* Hero */}
       <section className="max-w-5xl mx-auto px-6 pt-20 pb-16 text-center">
         <p className="font-cormorant text-lg italic text-muted-foreground mb-4 animate-fade-in">
-          для писателей, которые пишут всерьёз
+          помощник для писателей
         </p>
         <h1 className="font-cormorant text-6xl md:text-7xl font-light leading-tight mb-6 animate-slide-up"
           style={{ animationDelay: '0.1s' }}>
@@ -71,8 +71,8 @@ export default function LandingPage({ onLogin, onRegister }: Props) {
         </h1>
         <p className="font-lora text-base text-muted-foreground max-w-xl mx-auto mb-10 leading-relaxed"
           style={{ animationDelay: '0.2s' }}>
-          Скрипторий — рабочее пространство для авторов. Рукопись, персонажи, план,
-          лор и статистика в одном месте. Без лишнего.
+          Скрипторий — рабочее пространство для авторов художественной прозы.
+          Рукопись и все материалы в одном месте.
         </p>
         <div className="flex items-center justify-center gap-4 animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <button onClick={onRegister}
@@ -113,7 +113,7 @@ export default function LandingPage({ onLogin, onRegister }: Props) {
       <section className="border-t border-border bg-muted/20">
         <div className="max-w-5xl mx-auto px-6 py-16 text-center">
           <h2 className="font-cormorant text-4xl font-light mb-4">Готовы начать писать?</h2>
-          <p className="font-lora text-sm text-muted-foreground mb-8">Регистрация бесплатна. Никаких карт.</p>
+          <p className="font-lora text-sm text-muted-foreground mb-8">Регистрация бесплатна.</p>
           <button onClick={onRegister}
             className="px-8 py-4 rounded-xl font-lora text-base transition-all hover-lift"
             style={{ background: 'hsl(var(--violet))', color: 'hsl(var(--primary-foreground))' }}>
