@@ -288,6 +288,8 @@ function BookDetail({
   onUpdate,
   onDelete,
   loading,
+  goalChars,
+  onSetGoal,
 }: {
   book: BookData;
   tab: BookTab;
@@ -297,7 +299,7 @@ function BookDetail({
   onDelete: () => void;
   loading?: boolean;
   goalChars?: number;
-  onSetGoal: (chars: number) => void;
+  onSetGoal?: (chars: number) => void;
 }) {
   const [editingMeta, setEditingMeta] = useState(false);
   const [titleDraft, setTitleDraft] = useState(book.title);
