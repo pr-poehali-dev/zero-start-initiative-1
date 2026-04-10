@@ -228,7 +228,7 @@ export default function IdeasTab({ initialTags, initialNotes, onSaveTags, onSave
                         return (
                           <button key={t.id} type="button"
                             onClick={() => toggleNoteTag(t.id, noteDraft.tagIds, (v) => setNoteDraft({ ...noteDraft, tagIds: v }))}
-                            className="font-lora text-xs px-2.5 py-1 rounded-full border transition-all"
+                            className="font-lora text-xs px-2.5 py-1 rounded-full border"
                             style={active
                               ? { background: t.color, color: "#fff", borderColor: t.color }
                               : { background: "transparent", color: t.color, borderColor: `${t.color}60` }
@@ -536,7 +536,7 @@ export default function IdeasTab({ initialTags, initialNotes, onSaveTags, onSave
                     return (
                       <button key={t.id} type="button"
                         onClick={() => toggleNoteTag(t.id, newNoteTags, setNewNoteTags)}
-                        className="font-lora text-xs px-3 py-1.5 rounded-full border transition-all"
+                        className="font-lora text-xs px-3 py-1.5 rounded-full border"
                         style={active
                           ? { background: t.color, color: "#fff", borderColor: t.color }
                           : { background: "transparent", color: t.color, borderColor: `${t.color}60` }
@@ -545,6 +545,13 @@ export default function IdeasTab({ initialTags, initialNotes, onSaveTags, onSave
                       </button>
                     );
                   })}
+                  {tags.length === 0 && (
+                    <button type="button" onClick={() => { setShowNewNote(false); setShowTagManager(true); }}
+                      className="font-lora text-xs text-violet hover:opacity-70 transition-opacity flex items-center gap-1">
+                      <Icon name="Tag" size={12} />
+                      Ярлыков ещё нет — создать?
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
