@@ -1,12 +1,12 @@
-import { books, totalWords, totalChars } from "@/data/books";
+import { useBooks } from "@/hooks/useBooks";
+import { wordsToChars } from "@/data/books";
+import { DEMO_STREAK } from "@/data/demoBook";
 
 type Page = "home" | "books" | "stats" | "profile" | "help";
 
 interface Props {
   onNavigate: (page: Page) => void;
 }
-
-const recentBooks = books;
 
 const quotes = [
   { text: "Величайшее умение писателя — это уметь вычёркивать. Кто умеет и кто в силах своё вычёркивать, тот далеко пойдёт.", author: "Ф. М. Достоевский" },
@@ -21,15 +21,20 @@ const quotes = [
 ];
 
 export default function HomePage({ onNavigate }: Props) {
+  const { books, loading } = useBooks();
   const quote = quotes[Math.floor(Date.now() / 86400000) % quotes.length];
+
+  const realBooks = books.filter((b) => b.title !== "[удалено]");
+  const totalWords = realBooks.reduce((s, b) => s + b.words, 0);
+  const totalChars = wordsToChars(totalWords);
+  const recentBooks = realBooks.slice(0, 3);
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10 pb-24 md:pb-10">
       {/* Hero */}
       <section className="mb-14 animate-slide-up">
-        <div className="relative overflow-hidden rounded-2xl bg-violet-deep px-8 py-12 md:py-16"
+        <div className="relative overflow-hidden rounded-2xl px-8 py-12 md:py-16"
           style={{ background: 'linear-gradient(135deg, hsl(267 50% 22%) 0%, hsl(270 40% 32%) 100%)' }}>
-          {/* Decorative texture */}
           <div className="absolute inset-0 opacity-5"
             style={{
               backgroundImage: 'radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)',
@@ -44,89 +49,73 @@ export default function HomePage({ onNavigate }: Props) {
               <p className="font-lora text-sm text-white/50">— {quote.author}</p>
             )}
           </div>
-          <div className="absolute right-8 bottom-6 font-cormorant text-8xl text-white/5 select-none pointer-events-none">
-            ✦
-          </div>
+          <div className="absolute right-8 bottom-6 font-cormorant text-8xl text-white/5 select-none pointer-events-none">✦</div>
         </div>
       </section>
 
       {/* Quick actions */}
-      <section className="mb-12" style={{ animationDelay: '0.1s' }}>
+      <section className="mb-12">
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-cormorant text-2xl font-light text-foreground">Начать новое</h2>
           <span className="ornament text-sm">✦ ✦ ✦</span>
         </div>
-        <button
-          onClick={() => onNavigate("books")}
+        <button onClick={() => onNavigate("books")}
           className="w-full md:w-auto flex items-center gap-3 px-6 py-3.5 rounded-xl font-lora text-sm transition-all hover-lift"
-          style={{ background: 'hsl(var(--violet))', color: 'hsl(var(--primary-foreground))' }}
-        >
+          style={{ background: 'hsl(var(--violet))', color: 'hsl(var(--primary-foreground))' }}>
           <span className="text-lg">✦</span>
           Создать новую книгу
         </button>
       </section>
 
       {/* Recent books */}
-      <section style={{ animationDelay: '0.15s' }}>
+      <section>
         <div className="flex items-center justify-between mb-5">
           <h2 className="font-cormorant text-2xl font-light text-foreground">Недавние проекты</h2>
-          <button
-            onClick={() => onNavigate("books")}
-            className="font-lora text-sm text-violet hover:opacity-80 transition-opacity"
-          >
+          <button onClick={() => onNavigate("books")}
+            className="font-lora text-sm text-violet hover:opacity-80 transition-opacity">
             Все книги →
           </button>
         </div>
-        <div className="grid md:grid-cols-3 gap-4">
-          {recentBooks.map((book) => (
-            <button
-              key={book.title}
-              onClick={() => onNavigate("books")}
-              className="text-left group p-5 rounded-xl border border-border bg-card hover-lift transition-all"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="font-cormorant text-xl font-medium text-foreground group-hover:text-violet transition-colors">
-                    {book.title}
-                  </h3>
-                  <p className="font-lora text-xs text-muted-foreground mt-0.5">{book.genre}</p>
-                </div>
-                <span className="text-xs font-lora text-muted-foreground bg-muted px-2 py-1 rounded-md">
-                  {book.lastEdit}
-                </span>
-              </div>
 
-              {/* Progress */}
-              <div className="mb-2">
-                <div className="h-0.5 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${book.progress}%`,
-                      background: 'hsl(var(--violet))'
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="font-lora text-xs text-muted-foreground">
-                  {book.words.toLocaleString("ru")} слов
-                </span>
-                <span className="font-lora text-xs text-violet">{book.progress}%</span>
-              </div>
+        {loading ? (
+          <div className="flex items-center justify-center py-10">
+            <div className="w-5 h-5 border-2 rounded-full animate-spin"
+              style={{ borderColor: 'hsl(var(--violet) / 0.3)', borderTopColor: 'hsl(var(--violet))' }} />
+          </div>
+        ) : recentBooks.length === 0 ? (
+          <div className="text-center py-10 rounded-xl border border-dashed border-border">
+            <p className="font-lora text-sm text-muted-foreground mb-3">Пока нет ни одной книги</p>
+            <button onClick={() => onNavigate("books")}
+              className="font-lora text-sm text-violet hover:opacity-80 transition-opacity">
+              Создать первую →
             </button>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-3 gap-4">
+            {recentBooks.map((book) => (
+              <button key={book.id} onClick={() => onNavigate("books")}
+                className="text-left group p-5 rounded-xl border border-border bg-card hover-lift transition-all">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="font-cormorant text-xl font-medium text-foreground group-hover:text-violet transition-colors">
+                      {book.title}
+                    </h3>
+                    <p className="font-lora text-xs text-muted-foreground mt-0.5">{book.genre || "Жанр не указан"}</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="font-lora text-xs text-muted-foreground">{book.words.toLocaleString("ru")} слов</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Stats teaser */}
       <section className="mt-12 space-y-3">
-        {/* Total words across all books */}
-        <button
-          onClick={() => onNavigate("stats")}
-          className="w-full flex items-center justify-between px-6 py-4 rounded-xl border border-border bg-card hover-lift transition-all"
-        >
+        <button onClick={() => onNavigate("stats")}
+          className="w-full flex items-center justify-between px-6 py-4 rounded-xl border border-border bg-card hover-lift transition-all">
           <div className="text-left">
             <div className="font-cormorant text-3xl font-light text-violet leading-none">
               {totalWords.toLocaleString("ru")}
@@ -143,14 +132,11 @@ export default function HomePage({ onNavigate }: Props) {
 
         <div className="grid grid-cols-2 gap-3">
           {[
-            { label: "Книг в работе", value: String(books.length) },
-            { label: "Дней подряд", value: "12" },
+            { label: "Книг в работе", value: String(realBooks.length) },
+            { label: "Дней подряд",   value: String(DEMO_STREAK) },
           ].map((stat) => (
-            <button
-              key={stat.label}
-              onClick={() => onNavigate("stats")}
-              className="text-center p-4 rounded-xl border border-border bg-card hover-lift transition-all"
-            >
+            <button key={stat.label} onClick={() => onNavigate("stats")}
+              className="text-center p-4 rounded-xl border border-border bg-card hover-lift transition-all">
               <div className="font-cormorant text-3xl font-light text-violet mb-1">{stat.value}</div>
               <div className="font-lora text-xs text-muted-foreground">{stat.label}</div>
             </button>

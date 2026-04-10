@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { books, totalWords, totalChars, wordsToChars } from "@/data/books";
+import { wordsToChars } from "@/data/books";
+import { useBooks } from "@/hooks/useBooks";
 import Icon from "@/components/ui/icon";
 
 // ── Mock data ──
 const WEEK_DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-const weekWords = [320, 0, 1200, 450, 800, 1500, 550];
+const weekWords = [280, 0, 320, 190, 0, 250, 200]; // демо — 14 дней работы над Принцем
 
 // Month: April 2026 — 30 days
 const APRIL_DAYS = Array.from({ length: 30 }, (_, i) => ({
@@ -29,11 +30,15 @@ type Period = "week" | "month" | "year";
 type Metric = "words" | "chars";
 
 export default function StatsPage() {
+  const { books: userBooks } = useBooks();
+  const realBooks = userBooks.filter((b) => b.title !== "[удалено]");
+
+  const totalWords = realBooks.reduce((s, b) => s + b.words, 0);
+  const totalChars = wordsToChars(totalWords);
+
   const [period, setPeriod] = useState<Period>("week");
   const [metric, setMetric] = useState<Metric>("words");
-  const [bookGoals, setBookGoals] = useState<Record<number, number>>(
-    Object.fromEntries(books.map((b) => [b.id, b.goalChars]))
-  );
+  const [bookGoals, setBookGoals] = useState<Record<number, number>>({});
   const [editingGoal, setEditingGoal] = useState<number | null>(null);
   const [goalDraft, setGoalDraft] = useState("");
 
@@ -79,7 +84,7 @@ export default function StatsPage() {
 
         {/* Book cards */}
         <div className="grid md:grid-cols-3 gap-3">
-          {books.map((b, idx) => {
+          {realBooks.map((b, idx) => {
             const chars = wordsToChars(b.words);
             const goal = bookGoals[b.id];
             const pct = goal ? Math.min(100, Math.round((chars / goal) * 100)) : null;
@@ -278,7 +283,7 @@ export default function StatsPage() {
           { label: "За неделю",   value: toDisplay(totalThisWeek).toLocaleString("ru"), unit: label },
           { label: "В среднем",   value: toDisplay(avgPerDay).toLocaleString("ru"),     unit: `${label} / день` },
           { label: "Лучший день", value: WEEK_DAYS[bestDay],                             unit: "эта неделя" },
-          { label: "Серия",       value: "12",                                           unit: "дней подряд" },
+          { label: "Серия",       value: "14",                                           unit: "дней подряд" },
         ].map((s) => (
           <div key={s.label} className="p-4 rounded-xl border border-border bg-card text-center">
             <div className="font-cormorant text-3xl font-light text-violet leading-none mb-0.5">{s.value}</div>
