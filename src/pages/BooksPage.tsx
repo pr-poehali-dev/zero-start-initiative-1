@@ -21,6 +21,8 @@ interface BookData {
   synopsis?: string;
 }
 
+const wordsToChars = (w: number) => Math.round(w * 5.5);
+
 export default function BooksPage() {
   const { books, loading, createBook: apiCreate, updateBook, deleteBook, getBook } = useBooks();
   const [selectedBook, setSelectedBook] = useState<number | null>(null);
@@ -30,6 +32,10 @@ export default function BooksPage() {
   const [showNewBook, setShowNewBook] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newGenre, setNewGenre] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  const [bookGoals, setBookGoals] = useState<Record<number, number>>({});
+  const [editingGoal, setEditingGoal] = useState<number | null>(null);
+  const [goalDraft, setGoalDraft] = useState("");
 
   const openBook = async (id: number) => {
     setLoadingBook(true);
@@ -57,6 +63,12 @@ export default function BooksPage() {
     await deleteBook(id);
     setSelectedBook(null);
     setSelectedBookFull(null);
+    setConfirmDelete(null);
+  };
+
+  const handleDeleteFromList = async (id: number) => {
+    setConfirmDelete(null);
+    await deleteBook(id);
   };
 
   if (selectedBook !== null) {
@@ -94,23 +106,87 @@ export default function BooksPage() {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-5">
-          {books.filter((b) => b.title !== '[удалено]').map((book) => (
-            <button key={book.id} onClick={() => openBook(book.id)}
-              className="text-left group p-6 rounded-xl border border-border bg-card hover-lift transition-all">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-14 rounded-md flex-shrink-0 flex items-center justify-center"
-                  style={{ background: 'hsl(var(--violet-light))' }}>
-                  <span className="text-violet text-lg">✦</span>
+          {books.filter((b) => b.title !== '[удалено]').map((book) => {
+            const chars = wordsToChars(book.words);
+            const goal = bookGoals[book.id];
+            const pct = goal ? Math.min(100, Math.round((chars / goal) * 100)) : null;
+            return (
+              <div key={book.id} className="group p-6 rounded-xl border border-border bg-card hover-lift transition-all">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-14 rounded-md flex-shrink-0 flex items-center justify-center"
+                    style={{ background: 'hsl(var(--violet-light))' }}>
+                    <span className="text-violet text-lg">✦</span>
+                  </div>
+                  <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openBook(book.id)}>
+                    <h3 className="font-cormorant text-xl font-medium group-hover:text-violet transition-colors">{book.title}</h3>
+                    <p className="font-lora text-xs text-muted-foreground mt-0.5 mb-3">{book.genre || "Жанр не указан"}</p>
+
+                    {/* Words / chars */}
+                    <div className="flex gap-3 mb-2">
+                      <span className="font-lora text-xs text-muted-foreground">{book.words.toLocaleString("ru")} слов</span>
+                      <span className="font-lora text-xs text-muted-foreground">·</span>
+                      <span className="font-lora text-xs text-muted-foreground">{chars.toLocaleString("ru")} знаков</span>
+                    </div>
+
+                    {/* Goal */}
+                    {pct !== null ? (
+                      <div>
+                        <div className="flex justify-between font-lora text-[11px] text-muted-foreground mb-1">
+                          <span>{pct}% от цели</span>
+                          {editingGoal === book.id ? (
+                            <span className="flex items-center gap-1">
+                              <input value={goalDraft}
+                                onChange={(e) => setGoalDraft(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    const v = parseInt(goalDraft.replace(/\D/g, ""));
+                                    if (v > 0) setBookGoals({ ...bookGoals, [book.id]: v });
+                                    setEditingGoal(null);
+                                  }
+                                  if (e.key === "Escape") setEditingGoal(null);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-20 border border-border rounded px-1 py-0.5 font-lora text-[11px] bg-background focus:outline-none"
+                                placeholder="знаков..." autoFocus />
+                              <button onClick={(e) => { e.stopPropagation(); const v = parseInt(goalDraft.replace(/\D/g, "")); if (v > 0) setBookGoals({ ...bookGoals, [book.id]: v }); setEditingGoal(null); }}
+                                className="text-violet hover:opacity-70">✓</button>
+                            </span>
+                          ) : (
+                            <button onClick={(e) => { e.stopPropagation(); setEditingGoal(book.id); setGoalDraft(String(goal)); }}
+                              className="hover:text-foreground transition-colors">
+                              цель: {goal.toLocaleString("ru")} зн. ✎
+                            </button>
+                          )}
+                        </div>
+                        <div className="h-1 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all"
+                            style={{ width: `${pct}%`, background: 'hsl(var(--violet))' }} />
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setBookGoals({ ...bookGoals, [book.id]: 50000 }); setEditingGoal(book.id); setGoalDraft("50000"); }}
+                        className="font-lora text-xs text-muted-foreground/60 hover:text-violet transition-colors">
+                        + Поставить цель
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex flex-col gap-1.5 flex-shrink-0">
+                    <button onClick={() => openBook(book.id)}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-violet hover:bg-muted transition-colors">
+                      <Icon name="ChevronRight" size={16} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(book.id); }}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-muted transition-colors opacity-0 group-hover:opacity-100">
+                      <Icon name="Trash2" size={14} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-cormorant text-xl font-medium group-hover:text-violet transition-colors">{book.title}</h3>
-                  <p className="font-lora text-xs text-muted-foreground mt-0.5 mb-3">{book.genre || "Жанр не указан"}</p>
-                  <p className="font-lora text-sm text-muted-foreground">{book.words.toLocaleString("ru")} слов</p>
-                </div>
-                <Icon name="ChevronRight" size={18} className="text-muted-foreground group-hover:text-violet transition-colors mt-1" />
               </div>
-            </button>
-          ))}
+            );
+          })}
           <button onClick={() => setShowNewBook(true)}
             className="text-left group p-6 rounded-xl border-2 border-dashed border-border hover:border-violet bg-transparent hover-lift transition-all">
             <div className="flex flex-col items-center justify-center h-20 gap-2">
@@ -120,6 +196,34 @@ export default function BooksPage() {
               </span>
             </div>
           </button>
+        </div>
+      )}
+
+      {/* ── Confirm delete modal ── */}
+      {confirmDelete !== null && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl border border-border p-7 w-full max-w-sm animate-slide-up">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
+                <Icon name="Trash2" size={18} className="text-destructive" />
+              </div>
+              <h2 className="font-cormorant text-2xl">Удалить книгу?</h2>
+            </div>
+            <p className="font-lora text-sm text-muted-foreground leading-relaxed mb-6">
+              Вы точно хотите удалить книгу <span className="font-medium text-foreground">«{books.find(b => b.id === confirmDelete)?.title}»</span>?
+              Это безвозвратный процесс — вся рукопись, персонажи, план и лор будут потеряны. Будьте осторожны.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDelete(null)}
+                className="flex-1 py-2.5 rounded-lg border border-border font-lora text-sm text-muted-foreground hover:bg-muted transition-colors">
+                Отмена
+              </button>
+              <button onClick={() => handleDeleteFromList(confirmDelete)}
+                className="flex-1 py-2.5 rounded-lg font-lora text-sm text-white transition-all bg-destructive hover:opacity-90">
+                Удалить навсегда
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
