@@ -103,7 +103,8 @@ export default function HomePage({ onNavigate }: Props) {
                   </div>
                 </div>
                 <div className="flex items-center justify-between mt-2">
-                  <span className="font-lora text-xs text-muted-foreground">{book.words.toLocaleString("ru")} слов</span>
+                  <span className="font-lora text-xs text-muted-foreground">{book.words.toLocaleString("ru")} зн.</span>
+                  <span className="font-lora text-xs text-muted-foreground">{(book.words / 40000).toFixed(1)} авт. л.</span>
                 </div>
               </button>
             ))}
