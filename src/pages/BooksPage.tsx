@@ -256,6 +256,7 @@ interface Character {
   id: number;
   name: string;
   role: string;
+  photo: string | null;
   freeText: string;
   questionnaire: Record<string, string>;
 }
@@ -290,6 +291,7 @@ const DEFAULT_CHARS: Character[] = [
     id: 1,
     name: "Эля",
     role: "Главный герой",
+    photo: null,
     freeText: "Молодая картографиня с даром видеть скрытые пути между мирами.",
     questionnaire: {
       fullname: "Элеонора Вэйн",
@@ -302,6 +304,7 @@ const DEFAULT_CHARS: Character[] = [
     id: 2,
     name: "Лорд Кейн",
     role: "Антагонист",
+    photo: null,
     freeText: "Архивариус Башни, хранящий запрещённые карты. Холоден, методичен, убеждён в своей правоте.",
     questionnaire: {
       fullname: "Кейн Аш-Дарей",
@@ -341,6 +344,7 @@ function CharactersTab() {
       id: Date.now(),
       name: newName.trim(),
       role: newRole,
+      photo: null,
       freeText: "",
       questionnaire: {},
     };
@@ -511,17 +515,51 @@ function CharactersTab() {
       {view === "card" && (
         <div className="space-y-4">
           <div className="p-5 rounded-xl border border-border bg-card">
-            <label className="font-lora text-xs text-muted-foreground block mb-2">Свободное описание</label>
-            {editing ? (
-              <textarea value={draft.freeText} onChange={(e) => setDraft({ ...draft, freeText: e.target.value })}
-                rows={6}
-                className="w-full border border-border rounded-lg px-3 py-2.5 font-lora text-sm bg-background resize-none focus:outline-none focus:ring-1 scroll-custom"
-                placeholder="Всё, что важно знать об этом персонаже..." />
-            ) : (
-              <p className="font-lora text-sm leading-7 whitespace-pre-wrap text-foreground">
-                {selected.freeText || <span className="text-muted-foreground italic">Описание не заполнено</span>}
-              </p>
-            )}
+            {/* Photo upload */}
+            <div className="flex items-start gap-5 mb-5">
+              <div className="flex-shrink-0">
+                {draft.photo ? (
+                  <div className="relative group w-24 h-32 rounded-xl overflow-hidden border border-border">
+                    <img src={draft.photo} alt={draft.name} className="w-full h-full object-cover" />
+                    {editing && (
+                      <button
+                        onClick={() => setDraft({ ...draft, photo: null })}
+                        className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <Icon name="Trash2" size={16} className="text-white" />
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <label className={`w-24 h-32 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${editing ? "border-border hover:border-violet" : "border-border"}`}>
+                    {editing && (
+                      <input type="file" accept="image/*" className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = (ev) => setDraft({ ...draft, photo: ev.target?.result as string });
+                          reader.readAsDataURL(file);
+                        }} />
+                    )}
+                    <Icon name="ImagePlus" size={20} className={editing ? "text-muted-foreground" : "text-muted-foreground/40"} />
+                    {editing && <span className="font-lora text-[10px] text-muted-foreground text-center leading-tight px-1">Загрузить фото</span>}
+                  </label>
+                )}
+              </div>
+              <div className="flex-1">
+                <label className="font-lora text-xs text-muted-foreground block mb-2">Свободное описание</label>
+                {editing ? (
+                  <textarea value={draft.freeText} onChange={(e) => setDraft({ ...draft, freeText: e.target.value })}
+                    rows={5}
+                    className="w-full border border-border rounded-lg px-3 py-2.5 font-lora text-sm bg-background resize-none focus:outline-none focus:ring-1 scroll-custom"
+                    placeholder="Всё, что важно знать об этом персонаже..." />
+                ) : (
+                  <p className="font-lora text-sm leading-7 whitespace-pre-wrap text-foreground">
+                    {selected.freeText || <span className="text-muted-foreground italic">Описание не заполнено</span>}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Quick questionnaire preview */}
@@ -546,79 +584,79 @@ function CharactersTab() {
 
       {/* QUESTIONNAIRE — школьный альбом */}
       {view === "questionnaire" && (
-        <div className="relative">
-          {/* Декоративная рамка альбома */}
-          <div className="rounded-2xl border-2 overflow-hidden"
-            style={{ borderColor: `${color}55` }}>
-            {/* Шапка */}
-            <div className="px-8 py-6 text-white"
-              style={{ background: `linear-gradient(135deg, ${color} 0%, ${color}bb 100%)` }}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-cormorant text-sm italic opacity-70 mb-1">Досье персонажа</p>
-                  <h3 className="font-cormorant text-3xl font-light">{selected.name}</h3>
-                </div>
-                <div className="text-right opacity-60">
-                  <div className="font-cormorant text-4xl">✦</div>
-                </div>
-              </div>
-              {/* Progress */}
-              <div className="mt-4">
-                <div className="flex justify-between font-lora text-xs opacity-60 mb-1">
-                  <span>Заполнено</span>
-                  <span>{filled} из {QUESTIONNAIRE_FIELDS.length}</span>
-                </div>
-                <div className="h-1 bg-white/20 rounded-full overflow-hidden">
-                  <div className="h-full bg-white/70 rounded-full transition-all"
-                    style={{ width: `${(filled / QUESTIONNAIRE_FIELDS.length) * 100}%` }} />
-                </div>
-              </div>
-            </div>
+        <div className="rounded-2xl border overflow-hidden" style={{ borderColor: 'hsl(var(--violet) / 0.3)' }}>
 
-            {/* Поля анкеты — линованная бумага */}
-            <div className="bg-card px-8 py-6 space-y-0"
-              style={{
-                backgroundImage: 'repeating-linear-gradient(transparent, transparent 35px, hsl(var(--border)) 35px, hsl(var(--border)) 36px)',
-                backgroundSize: '100% 36px',
-                backgroundPositionY: '0',
-              }}>
-              {QUESTIONNAIRE_FIELDS.map((field, i) => (
-                <div key={field.key} className="py-1" style={{ minHeight: '36px' }}>
-                  <div className="flex items-baseline gap-3">
-                    <span className="font-lora text-xs text-muted-foreground/60 w-5 flex-shrink-0 text-right"
-                      style={{ color: `${color}88` }}>
-                      {i + 1}.
-                    </span>
-                    <span className="font-lora text-xs text-muted-foreground flex-shrink-0 w-44">
-                      {field.label}
-                    </span>
-                    {editing ? (
-                      <input
-                        value={draft.questionnaire[field.key] ?? ""}
-                        onChange={(e) => setDraft({
-                          ...draft,
-                          questionnaire: { ...draft.questionnaire, [field.key]: e.target.value }
-                        })}
-                        className="flex-1 bg-transparent font-lora text-sm focus:outline-none border-b border-transparent focus:border-violet/40 transition-colors pb-0.5"
-                        placeholder="..."
-                      />
-                    ) : (
-                      <span className={`font-lora text-sm flex-1 ${
-                        draft.questionnaire[field.key] ? "text-foreground" : "text-muted-foreground/30 italic"
-                      }`}>
-                        {draft.questionnaire[field.key] || "—"}
-                      </span>
-                    )}
+          {/* Шапка — всегда фиолетовая */}
+          <div className="px-7 py-6" style={{ background: 'linear-gradient(135deg, hsl(267 50% 30%) 0%, hsl(267 45% 42%) 100%)' }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                {/* Фото или инициал в шапке */}
+                {(draft.photo || selected.photo) ? (
+                  <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/30 flex-shrink-0">
+                    <img src={draft.photo ?? selected.photo ?? ""} alt={selected.name} className="w-full h-full object-cover" />
                   </div>
+                ) : (
+                  <div className="w-14 h-14 rounded-full border-2 border-white/30 flex items-center justify-center font-cormorant text-2xl text-white/80 flex-shrink-0">
+                    {selected.name[0]}
+                  </div>
+                )}
+                <div>
+                  <p className="font-cormorant text-sm italic text-white/60 mb-0.5">Досье персонажа</p>
+                  <h3 className="font-cormorant text-2xl font-light text-white">{selected.name}</h3>
+                  <span className="font-lora text-xs text-white/60">{selected.role}</span>
                 </div>
-              ))}
+              </div>
+              <div className="font-cormorant text-5xl text-white/10 select-none">✦</div>
             </div>
+            {/* Progress */}
+            <div className="mt-5">
+              <div className="flex justify-between font-lora text-xs text-white/50 mb-1.5">
+                <span>Заполнено</span>
+                <span>{filled} из {QUESTIONNAIRE_FIELDS.length}</span>
+              </div>
+              <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+                <div className="h-full bg-white/60 rounded-full transition-all"
+                  style={{ width: `${(filled / QUESTIONNAIRE_FIELDS.length) * 100}%` }} />
+              </div>
+            </div>
+          </div>
 
-            {/* Footer */}
-            <div className="px-8 py-3 border-t border-border flex justify-between items-center bg-muted/20">
-              <span className="font-cormorant text-xs italic text-muted-foreground">Скрипторий · Анкета персонажа</span>
-              <span className="font-lora text-xs text-muted-foreground">{selected.role}</span>
-            </div>
+          {/* Поля анкеты */}
+          <div className="bg-card divide-y divide-border">
+            {QUESTIONNAIRE_FIELDS.map((field, i) => (
+              <div key={field.key} className="grid grid-cols-[1.5rem_10rem_1fr] items-center gap-3 px-6 py-3">
+                <span className="font-lora text-xs text-center flex-shrink-0"
+                  style={{ color: 'hsl(var(--violet) / 0.5)' }}>
+                  {i + 1}
+                </span>
+                <span className="font-lora text-xs text-muted-foreground leading-tight">
+                  {field.label}
+                </span>
+                {editing ? (
+                  <input
+                    value={draft.questionnaire[field.key] ?? ""}
+                    onChange={(e) => setDraft({
+                      ...draft,
+                      questionnaire: { ...draft.questionnaire, [field.key]: e.target.value }
+                    })}
+                    className="font-lora text-sm bg-transparent focus:outline-none border-b border-border focus:border-violet/50 transition-colors py-0.5 w-full"
+                    placeholder="..."
+                  />
+                ) : (
+                  <span className={`font-lora text-sm ${
+                    draft.questionnaire[field.key] ? "text-foreground" : "text-muted-foreground/30 italic"
+                  }`}>
+                    {draft.questionnaire[field.key] || "—"}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-3 border-t border-border flex justify-between items-center bg-muted/20">
+            <span className="font-cormorant text-xs italic text-muted-foreground">Скрипторий · Анкета персонажа</span>
+            <span className="font-lora text-xs text-muted-foreground">{new Date().getFullYear()}</span>
           </div>
         </div>
       )}
