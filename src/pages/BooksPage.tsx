@@ -662,7 +662,7 @@ function ManuscriptTab({ initialText, onSave, bookId }: { initialText: string; o
                   <span className="font-lora text-xs text-muted-foreground">{totalWords.toLocaleString("ru")} слов</span>
                   <span className="font-lora text-xs text-muted-foreground">{totalChars.toLocaleString("ru")} знаков</span>
                 </div>
-                <button onClick={downloadAll}
+                <button onClick={() => downloadText(chapters.map((c) => `${c.title}\n\n${c.content}`).join("\n\n---\n\n"), "рукопись.txt")}
                   className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors">
                   <Icon name="Download" size={13} />
                   Скачать .txt
