@@ -29,7 +29,6 @@ interface BookData {
   lore_notes?: string;
 }
 
-const wordsToChars = (w: number) => Math.round(w * 5.5);
 const GOALS_KEY = "scriptorium_book_goals";
 
 function loadGoals(): Record<number, number> {
@@ -158,9 +157,7 @@ export default function BooksPage() {
                     <p className="font-lora text-xs text-muted-foreground mt-0.5 mb-3">{book.genre || "Жанр не указан"}</p>
 
                     <div className="flex gap-3 mb-2">
-                      <span className="font-lora text-xs text-muted-foreground">{book.words.toLocaleString("ru")} слов</span>
-                      <span className="font-lora text-xs text-muted-foreground">·</span>
-                      <span className="font-lora text-xs text-muted-foreground">{chars.toLocaleString("ru")} знаков</span>
+                      <span className="font-lora text-xs text-muted-foreground">{book.words.toLocaleString("ru")} знаков</span>
                     </div>
 
                     {pct !== null ? (
@@ -326,7 +323,7 @@ function BookDetail({
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalDraft, setGoalDraft] = useState("");
 
-  const chars = wordsToChars(book.words);
+  const chars = book.words; // words = знаки с пробелами
   const pct = goalChars ? Math.min(100, Math.round((chars / goalChars) * 100)) : null;
 
   const saveMeta = () => {
@@ -392,8 +389,7 @@ function BookDetail({
                 <div className="space-y-0.5">
                   <p className="font-lora text-xs text-muted-foreground">Текущий объём</p>
                   <p className="font-lora text-sm font-medium">
-                    {book.words.toLocaleString("ru")} слов
-                    <span className="text-muted-foreground font-normal ml-2">· {chars.toLocaleString("ru")} знаков</span>
+                    {book.words.toLocaleString("ru")} знаков (с пробелами)
                   </p>
                 </div>
                 <div className="text-right space-y-0.5">

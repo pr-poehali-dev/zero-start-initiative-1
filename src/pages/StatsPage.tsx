@@ -51,16 +51,15 @@ function recordTodayChars(totalChars: number): Record<string, number> {
   return history;
 }
 
-// chars → words (приблизительно)
-function charsToWords(chars: number) { return Math.round(chars / 5.5); }
-function wordsToChars(words: number) { return Math.round(words * 5.5); }
+// words в БД хранит знаки с пробелами напрямую
+function charsToWords(chars: number) { return Math.round(chars / 6); }
 
 export default function StatsPage() {
   const { books: userBooks } = useBooks();
   const realBooks = userBooks.filter((b) => b.title !== "[удалено]");
 
-  const totalWords = realBooks.reduce((s, b) => s + b.words, 0);
-  const totalChars = wordsToChars(totalWords);
+  const totalChars = realBooks.reduce((s, b) => s + b.words, 0); // words = знаки с пробелами
+  const totalWords = charsToWords(totalChars);
 
   const [history, setHistory] = useState<Record<string, number>>({});
   const [period, setPeriod] = useState<Period>("week");
@@ -162,7 +161,7 @@ export default function StatsPage() {
         {/* Book cards */}
         <div className="grid md:grid-cols-3 gap-3">
           {realBooks.map((b, idx) => {
-            const chars = wordsToChars(b.words);
+            const chars = b.words; // words хранит знаки с пробелами
             const goal = bookGoals[b.id];
             const pct = goal ? Math.min(100, Math.round((chars / goal) * 100)) : null;
             const color = BOOK_COLORS[idx % BOOK_COLORS.length];
@@ -180,8 +179,8 @@ export default function StatsPage() {
                 </div>
 
                 <div className="flex justify-between font-lora text-xs mb-1">
-                  <span className="text-muted-foreground">{b.words.toLocaleString("ru")} сл.</span>
-                  <span style={{ color }}>{chars.toLocaleString("ru")} зн.</span>
+                  <span className="text-muted-foreground">{chars.toLocaleString("ru")} зн.</span>
+                  <span style={{ color }}>~{charsToWords(chars).toLocaleString("ru")} сл.</span>
                 </div>
 
                 {pct === null && (

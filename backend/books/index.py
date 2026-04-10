@@ -192,8 +192,39 @@ def verify_user(token: str):
     return row[0] if row else None
 
 
-def count_words(text: str) -> int:
-    return len(text.strip().split()) if text.strip() else 0
+import re as _re
+from html.parser import HTMLParser as _HTMLParser
+
+class _MLStripper(_HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.fed = []
+    def handle_data(self, d):
+        self.fed.append(d)
+    def get_data(self):
+        return ''.join(self.fed)
+
+def _strip_html(html: str) -> str:
+    s = _MLStripper()
+    s.feed(html)
+    return s.get_data()
+
+def count_chars(manuscript: str) -> int:
+    """Считает знаки с пробелами из рукописи (JSON глав или plain text)."""
+    if not manuscript or not manuscript.strip():
+        return 0
+    try:
+        chapters = json.loads(manuscript)
+        if isinstance(chapters, list):
+            total = 0
+            for ch in chapters:
+                content = ch.get('content', '')
+                total += len(_strip_html(content))
+            return total
+    except Exception:
+        pass
+    # plain text fallback
+    return len(_strip_html(manuscript))
 
 
 def handler(event: dict, context) -> dict:
@@ -229,7 +260,7 @@ def handler(event: dict, context) -> dict:
                     """INSERT INTO books (user_id, title, genre, words, manuscript, synopsis, characters, plan, lore_tags, lore_notes)
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                        RETURNING id, title, genre, words, created_at, updated_at""",
-                    (user_id, 'Маленький принц', 'Аллегорическая повесть', 1240,
+                    (user_id, 'Маленький принц', 'Аллегорическая повесть', count_chars(DEMO_MANUSCRIPT),
                      DEMO_MANUSCRIPT, DEMO_SYNOPSIS,
                      DEMO_CHARACTERS, DEMO_PLAN,
                      DEMO_LORE_TAGS, DEMO_LORE_NOTES)
@@ -288,7 +319,7 @@ def handler(event: dict, context) -> dict:
                 fields.append("genre=%s"); values.append(body['genre'].strip())
             if 'manuscript' in body:
                 fields.append("manuscript=%s"); values.append(body['manuscript'])
-                fields.append("words=%s"); values.append(count_words(body['manuscript']))
+                fields.append("words=%s"); values.append(count_chars(body['manuscript']))
             if 'synopsis' in body:
                 fields.append("synopsis=%s"); values.append(body['synopsis'])
             if 'characters' in body:

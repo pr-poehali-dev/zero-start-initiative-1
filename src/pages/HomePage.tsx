@@ -1,5 +1,4 @@
 import { useBooks } from "@/hooks/useBooks";
-import { wordsToChars } from "@/data/books";
 import { DEMO_STREAK } from "@/data/demoBook";
 
 type Page = "home" | "books" | "stats" | "profile" | "help";
@@ -25,8 +24,7 @@ export default function HomePage({ onNavigate }: Props) {
   const quote = quotes[Math.floor(Date.now() / 86400000) % quotes.length];
 
   const realBooks = books.filter((b) => b.title !== "[удалено]");
-  const totalWords = realBooks.reduce((s, b) => s + b.words, 0);
-  const totalChars = wordsToChars(totalWords);
+  const totalChars = realBooks.reduce((s, b) => s + b.words, 0); // words хранит знаки с пробелами
   const recentBooks = realBooks.slice(0, 3);
   const streak = realBooks.length > 0 ? DEMO_STREAK : 0;
 
@@ -119,15 +117,15 @@ export default function HomePage({ onNavigate }: Props) {
           className="w-full flex items-center justify-between px-6 py-4 rounded-xl border border-border bg-card hover-lift transition-all">
           <div className="text-left">
             <div className="font-cormorant text-3xl font-light text-violet leading-none">
-              {totalWords.toLocaleString("ru")}
+              {totalChars.toLocaleString("ru")}
             </div>
-            <div className="font-lora text-xs text-muted-foreground mt-1">слов во всех книгах</div>
+            <div className="font-lora text-xs text-muted-foreground mt-1">знаков во всех книгах</div>
           </div>
           <div className="text-right">
             <div className="font-cormorant text-2xl font-light text-violet/70 leading-none">
-              {totalChars.toLocaleString("ru")}
+              {Math.round(totalChars / 6).toLocaleString("ru")}
             </div>
-            <div className="font-lora text-xs text-muted-foreground mt-1">знаков без пробелов</div>
+            <div className="font-lora text-xs text-muted-foreground mt-1">слов (примерно)</div>
           </div>
         </button>
 

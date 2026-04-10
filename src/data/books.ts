@@ -12,5 +12,6 @@ export const books = [
 ];
 
 export const totalWords = 1240;
-export const totalChars = Math.round(1240 * 5.5); // ~6820
-export const wordsToChars = (words: number) => Math.round(words * 5.5);
+export const totalChars = 6820;
+// words в БД теперь хранит знаки с пробелами напрямую
+export const wordsToChars = (chars: number) => chars;
