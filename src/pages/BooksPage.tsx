@@ -142,7 +142,7 @@ export default function BooksPage() {
       ) : (
         <div className="grid md:grid-cols-2 gap-5">
           {books.filter((b) => b.title !== '[удалено]').map((book) => {
-            const chars = wordsToChars(book.words);
+            const chars = book.words;
             const goal = bookGoals[book.id];
             const pct = goal ? Math.min(100, Math.round((chars / goal) * 100)) : null;
             return (
