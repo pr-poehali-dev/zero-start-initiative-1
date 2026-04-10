@@ -347,6 +347,16 @@ function ManuscriptTab() {
         </button>
       </div>
 
+      {/* Tip */}
+      {!text.trim() && (
+        <div className="px-12 pt-6 pb-0">
+          <p className="font-lora text-xs text-muted-foreground/60 italic leading-relaxed border-l-2 pl-3"
+            style={{ borderColor: 'hsl(var(--violet) / 0.25)' }}>
+            Рекомендуем писать в специализированном редакторе (Google Docs, Word), а сюда загружать готовый текст — так рядом со всеми материалами книги всегда будет бэкап.
+          </p>
+        </div>
+      )}
+
       {/* Editor */}
       <textarea
         ref={taRef}
@@ -360,7 +370,7 @@ function ManuscriptTab() {
           minHeight: '520px',
           background: 'hsl(var(--card))',
         }}
-        placeholder="Начните вашу историю..."
+        placeholder="Вставьте или загрузите текст рукописи..."
       />
 
       {/* Footer counter */}
