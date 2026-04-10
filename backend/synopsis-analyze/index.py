@@ -70,7 +70,8 @@ def handler(event: dict, context) -> dict:
             'body': ''
         }
 
-    body = json.loads(event.get('body') or '{}')
+    raw_body = event.get('body') or '{}'
+    body = raw_body if isinstance(raw_body, dict) else json.loads(raw_body)
     synopsis_text = body.get('synopsis', '').strip()
 
     if not synopsis_text:
@@ -129,7 +130,7 @@ def handler(event: dict, context) -> dict:
 Важно: указывай на реальные места в тексте, не абстрактные советы. Если раздел хорош — скажи почему."""
 
     request_data = json.dumps({
-        'model': 'gpt-4o',
+        'model': 'gpt-4o-mini',
         'messages': [{'role': 'user', 'content': prompt}],
         'response_format': {'type': 'json_object'},
         'temperature': 0.4,
@@ -146,8 +147,16 @@ def handler(event: dict, context) -> dict:
         method='POST'
     )
 
-    with urllib.request.urlopen(req, timeout=40) as resp:
-        result = json.loads(resp.read().decode('utf-8'))
+    try:
+        with urllib.request.urlopen(req, timeout=55) as resp:
+            result = json.loads(resp.read().decode('utf-8'))
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode('utf-8')
+        return {
+            'statusCode': 502,
+            'headers': {'Access-Control-Allow-Origin': '*'},
+            'body': json.dumps({'error': f'OpenAI error: {e.code} — {err_body[:300]}'}, ensure_ascii=False)
+        }
 
     content = result['choices'][0]['message']['content']
     analysis = json.loads(content)
