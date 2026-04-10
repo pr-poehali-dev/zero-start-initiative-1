@@ -2,6 +2,9 @@ const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const weekWords = [320, 0, 1200, 450, 800, 1500, 550];
 const maxWords = Math.max(...weekWords);
 
+// Среднее кол-во знаков на слово в русском ~5.5
+const wordsToChars = (words: number) => Math.round(words * 5.5);
+
 const monthData = Array.from({ length: 30 }, (_, i) => ({
   day: i + 1,
   words: Math.floor(Math.random() * 1200),
@@ -9,6 +12,7 @@ const monthData = Array.from({ length: 30 }, (_, i) => ({
 
 export default function StatsPage() {
   const totalThisWeek = weekWords.reduce((a, b) => a + b, 0);
+  const totalCharsWeek = wordsToChars(totalThisWeek);
   const avgPerDay = Math.round(totalThisWeek / weekWords.filter(Boolean).length);
   const bestDay = weekWords.indexOf(Math.max(...weekWords));
 
@@ -19,15 +23,16 @@ export default function StatsPage() {
       {/* Key metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
         {[
-          { label: "За неделю", value: totalThisWeek.toLocaleString("ru"), unit: "слов" },
-          { label: "В среднем", value: avgPerDay.toLocaleString("ru"), unit: "слов / день" },
-          { label: "Лучший день", value: weekDays[bestDay], unit: "на этой неделе" },
-          { label: "Серия", value: "12", unit: "дней подряд" },
+          { label: "За неделю", value: totalThisWeek.toLocaleString("ru"), unit: "слов", sub: `${totalCharsWeek.toLocaleString("ru")} зн.` },
+          { label: "В среднем", value: avgPerDay.toLocaleString("ru"), unit: "слов / день", sub: `${wordsToChars(avgPerDay).toLocaleString("ru")} зн. / день` },
+          { label: "Лучший день", value: weekDays[bestDay], unit: "на этой неделе", sub: null },
+          { label: "Серия", value: "12", unit: "дней подряд", sub: null },
         ].map((stat) => (
           <div key={stat.label} className="p-5 rounded-xl border border-border bg-card text-center">
             <div className="font-cormorant text-3xl font-light text-violet mb-0.5">{stat.value}</div>
             <div className="font-lora text-xs text-muted-foreground mb-0.5">{stat.unit}</div>
-            <div className="font-lora text-xs text-muted-foreground/60">{stat.label}</div>
+            {stat.sub && <div className="font-lora text-xs text-muted-foreground/50">{stat.sub}</div>}
+            <div className="font-lora text-xs text-muted-foreground/60 mt-0.5">{stat.label}</div>
           </div>
         ))}
       </div>
