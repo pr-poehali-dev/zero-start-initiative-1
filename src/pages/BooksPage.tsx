@@ -5,8 +5,9 @@ import ManuscriptTab from "@/components/book/ManuscriptTab";
 import CharactersTab from "@/components/book/CharactersTab";
 import PlanTab from "@/components/book/PlanTab";
 import LoreTab from "@/components/book/LoreTab";
+import IdeasTab from "@/components/book/IdeasTab";
 
-type BookTab = "manuscript" | "synopsis" | "characters" | "plan" | "lore";
+type BookTab = "manuscript" | "synopsis" | "characters" | "plan" | "lore" | "ideas";
 
 const TABS: { id: BookTab; label: string; icon: string }[] = [
   { id: "manuscript", label: "Рукопись", icon: "FileText" },
@@ -14,6 +15,7 @@ const TABS: { id: BookTab; label: string; icon: string }[] = [
   { id: "characters", label: "Персонажи", icon: "Users" },
   { id: "plan", label: "План", icon: "List" },
   { id: "lore", label: "Лор", icon: "Sparkles" },
+  { id: "ideas", label: "Идеи", icon: "Lightbulb" },
 ];
 
 interface BookData {
@@ -27,6 +29,8 @@ interface BookData {
   plan?: string;
   lore_tags?: string;
   lore_notes?: string;
+  ideas_tags?: string;
+  ideas_notes?: string;
 }
 
 const GOALS_KEY = "scriptorium_book_goals";
@@ -89,6 +93,7 @@ export default function BooksPage() {
   const handleUpdate = async (fields: Partial<{
     title: string; genre: string; manuscript: string; synopsis: string;
     characters: string; plan: string; lore_tags: string; lore_notes: string;
+    ideas_tags: string; ideas_notes: string;
   }>) => {
     if (!selectedBook) return;
     await updateBook(selectedBook, fields);
@@ -479,6 +484,7 @@ function BookDetail({
           {tab === "characters" && <CharactersTab key={book.id} bookId={book.id} initialData={book.characters ?? ""} onSave={(v) => onUpdate({ characters: v })} />}
           {tab === "plan" && <PlanTab key={book.id} bookId={book.id} initialData={book.plan ?? ""} onSave={(v) => onUpdate({ plan: v })} />}
           {tab === "lore" && <LoreTab key={book.id} initialTags={book.lore_tags ?? ""} initialNotes={book.lore_notes ?? ""} onSaveTags={(v) => onUpdate({ lore_tags: v })} onSaveNotes={(v) => onUpdate({ lore_notes: v })} />}
+          {tab === "ideas" && <IdeasTab key={book.id} initialTags={book.ideas_tags ?? ""} initialNotes={book.ideas_notes ?? ""} onSaveTags={(v) => onUpdate({ ideas_tags: v })} onSaveNotes={(v) => onUpdate({ ideas_notes: v })} />}
         </div>
       )}
 

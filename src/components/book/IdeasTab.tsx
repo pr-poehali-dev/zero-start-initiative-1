@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 
-interface LoreTag {
+interface IdeaTag {
   id: number;
   label: string;
   color: string;
 }
 
-interface LoreNote {
+interface IdeaNote {
   id: number;
   title: string;
   tagIds: number[];
@@ -24,24 +24,24 @@ const TAG_PALETTE = [
   "hsl(330 45% 42%)",
 ];
 
-const loreEditorStyles = `
-  .lore-editor { outline: none; font-family: var(--font-lora, Georgia, serif); font-size: 14px; line-height: 1.7; min-height: 300px; direction: ltr; }
-  .lore-editor:focus { outline: none; }
-  .lore-editor table { border-collapse: collapse; width: 100%; margin: 1em 0; }
-  .lore-editor td, .lore-editor th { border: 1px solid hsl(var(--border)); padding: 6px 10px; text-align: left; min-width: 80px; }
-  .lore-editor th { background: hsl(var(--muted)); font-weight: bold; }
-  .lore-editor p { margin: 0 0 0.6em; }
-  .lore-editor b, .lore-editor strong { font-weight: bold; }
-  .lore-editor i, .lore-editor em { font-style: italic; }
-  .lore-editor u { text-decoration: underline; }
+const ideasEditorStyles = `
+  .ideas-editor { outline: none; font-family: var(--font-lora, Georgia, serif); font-size: 14px; line-height: 1.7; min-height: 300px; direction: ltr; }
+  .ideas-editor:focus { outline: none; }
+  .ideas-editor table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+  .ideas-editor td, .ideas-editor th { border: 1px solid hsl(var(--border)); padding: 6px 10px; text-align: left; min-width: 80px; }
+  .ideas-editor th { background: hsl(var(--muted)); font-weight: bold; }
+  .ideas-editor p { margin: 0 0 0.6em; }
+  .ideas-editor b, .ideas-editor strong { font-weight: bold; }
+  .ideas-editor i, .ideas-editor em { font-style: italic; }
+  .ideas-editor u { text-decoration: underline; }
 `;
 
-function injectLoreStyles() {
+function injectIdeasStyles() {
   if (typeof document === "undefined") return;
-  if (document.getElementById("lore-editor-styles")) return;
+  if (document.getElementById("ideas-editor-styles")) return;
   const s = document.createElement("style");
-  s.id = "lore-editor-styles";
-  s.textContent = loreEditorStyles;
+  s.id = "ideas-editor-styles";
+  s.textContent = ideasEditorStyles;
   document.head.appendChild(s);
 }
 
@@ -59,29 +59,29 @@ function noteToText(html: string): string {
   return div.textContent ?? "";
 }
 
-export default function LoreTab({ initialTags, initialNotes, onSaveTags, onSaveNotes }: {
+export default function IdeasTab({ initialTags, initialNotes, onSaveTags, onSaveNotes }: {
   initialTags: string;
   initialNotes: string;
   onSaveTags: (v: string) => void;
   onSaveNotes: (v: string) => void;
 }) {
-  injectLoreStyles();
+  injectIdeasStyles();
 
-  const parseTags = (): LoreTag[] => {
+  const parseTags = (): IdeaTag[] => {
     try { if (initialTags) return JSON.parse(initialTags); } catch (_e) { /* ignore */ }
     return [];
   };
-  const parseNotes = (): LoreNote[] => {
+  const parseNotes = (): IdeaNote[] => {
     try { if (initialNotes) return JSON.parse(initialNotes); } catch (_e) { /* ignore */ }
     return [];
   };
 
-  const [tags, setTags] = useState<LoreTag[]>(parseTags);
-  const [notes, setNotes] = useState<LoreNote[]>(parseNotes);
+  const [tags, setTags] = useState<IdeaTag[]>(parseTags);
+  const [notes, setNotes] = useState<IdeaNote[]>(parseNotes);
   const [activeTag, setActiveTag] = useState<number | null>(null);
-  const [openNote, setOpenNote] = useState<LoreNote | null>(null);
+  const [openNote, setOpenNote] = useState<IdeaNote | null>(null);
   const [editingNote, setEditingNote] = useState(false);
-  const [noteDraft, setNoteDraft] = useState<LoreNote | null>(null);
+  const [noteDraft, setNoteDraft] = useState<IdeaNote | null>(null);
   const [search, setSearch] = useState("");
 
   const [showTagManager, setShowTagManager] = useState(false);
@@ -102,7 +102,6 @@ export default function LoreTab({ initialTags, initialNotes, onSaveTags, onSaveN
   useEffect(() => {
     if (editingNote && editorRef.current && noteDraft) {
       editorRef.current.innerHTML = noteDraft.text;
-      // Ставим курсор в конец
       const range = document.createRange();
       range.selectNodeContents(editorRef.current);
       range.collapse(false);
@@ -120,11 +119,11 @@ export default function LoreTab({ initialTags, initialNotes, onSaveTags, onSaveN
     return matchTag && matchSearch;
   });
 
-  const updateTags = (updated: LoreTag[]) => {
+  const updateTags = (updated: IdeaTag[]) => {
     setTags(updated);
     onSaveTags(JSON.stringify(updated));
   };
-  const updateNotes = (updated: LoreNote[]) => {
+  const updateNotes = (updated: IdeaNote[]) => {
     setNotes(updated);
     onSaveNotes(JSON.stringify(updated));
   };
@@ -157,14 +156,14 @@ export default function LoreTab({ initialTags, initialNotes, onSaveTags, onSaveN
 
   const createNote = () => {
     if (!newNoteTitle.trim()) return;
-    const n: LoreNote = { id: Date.now(), title: newNoteTitle.trim(), tagIds: newNoteTags, text: "" };
+    const n: IdeaNote = { id: Date.now(), title: newNoteTitle.trim(), tagIds: newNoteTags, text: "" };
     updateNotes([...notes, n]);
     setShowNewNote(false);
     setNewNoteTitle(""); setNewNoteTags([]);
     openNoteDetail(n, true);
   };
 
-  const openNoteDetail = (n: LoreNote, startEditing = false) => {
+  const openNoteDetail = (n: IdeaNote, startEditing = false) => {
     setOpenNote(n);
     setNoteDraft({ ...n, tagIds: [...n.tagIds] });
     setEditingNote(startEditing);
@@ -270,29 +269,23 @@ export default function LoreTab({ initialTags, initialNotes, onSaveTags, onSaveN
                     Сохранить
                   </button>
                 )}
-                <button onClick={() => deleteNote(openNote.id)}
-                  className="p-2 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors">
+                <button onClick={() => { if (confirm("Удалить эту заметку?")) deleteNote(openNote.id); }}
+                  className="px-3 py-2 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors">
                   <Icon name="Trash2" size={13} />
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Rich editor toolbar */}
+          {/* Toolbar */}
           {editingNote && (
-            <div className="flex items-center gap-0.5 px-3 py-2 border-b border-border bg-muted/10 flex-wrap">
+            <div className="px-4 py-2 border-b border-border flex items-center gap-0.5 flex-wrap bg-muted/30">
               <button onClick={() => execCmd("bold")} title="Жирный (Ctrl+B)"
-                className="px-2.5 py-1.5 rounded font-bold text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
-                Ж
-              </button>
+                className="px-2 py-1.5 rounded font-bold text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">B</button>
               <button onClick={() => execCmd("italic")} title="Курсив (Ctrl+I)"
-                className="px-2.5 py-1.5 rounded italic text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
-                К
-              </button>
+                className="px-2 py-1.5 rounded italic text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">I</button>
               <button onClick={() => execCmd("underline")} title="Подчёркнутый (Ctrl+U)"
-                className="px-2.5 py-1.5 rounded underline text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
-                Ч
-              </button>
+                className="px-2 py-1.5 rounded underline text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">U</button>
               <div className="w-px h-4 bg-border mx-1" />
               <button onClick={() => execCmd("insertUnorderedList")} title="Список"
                 className="px-2 py-1.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
@@ -303,31 +296,22 @@ export default function LoreTab({ initialTags, initialNotes, onSaveTags, onSaveN
                 <Icon name="ListOrdered" size={13} />
               </button>
               <div className="w-px h-4 bg-border mx-1" />
-              {/* Table picker */}
               <div className="relative">
-                <button
-                  onClick={() => setShowTablePicker((v) => !v)}
-                  title="Вставить таблицу"
-                  className="flex items-center gap-1 px-2 py-1.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora text-xs">
+                <button onClick={() => setShowTablePicker(!showTablePicker)} title="Таблица"
+                  className="px-2 py-1.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex items-center gap-1">
                   <Icon name="Table" size={13} />
-                  Таблица
                 </button>
                 {showTablePicker && (
-                  <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-xl shadow-lg z-30 p-4 w-52">
-                    <p className="font-lora text-xs text-muted-foreground mb-3">Размер таблицы</p>
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="flex-1">
-                        <label className="font-lora text-[11px] text-muted-foreground block mb-1">Строки</label>
-                        <input type="number" min={1} max={20} value={tableRows}
-                          onChange={(e) => setTableRows(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-full border border-border rounded px-2 py-1 font-lora text-xs bg-background focus:outline-none" />
-                      </div>
-                      <div className="flex-1">
-                        <label className="font-lora text-[11px] text-muted-foreground block mb-1">Колонки</label>
-                        <input type="number" min={1} max={10} value={tableCols}
-                          onChange={(e) => setTableCols(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-full border border-border rounded px-2 py-1 font-lora text-xs bg-background focus:outline-none" />
-                      </div>
+                  <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-lg shadow-lg p-3 z-10 min-w-36">
+                    <p className="font-lora text-[11px] text-muted-foreground mb-2">Размер таблицы</p>
+                    <div className="flex items-center gap-2 mb-2">
+                      <input type="number" min={1} max={10} value={tableRows}
+                        onChange={(e) => setTableRows(Number(e.target.value))}
+                        className="w-12 border border-border rounded px-1.5 py-1 font-lora text-xs bg-background focus:outline-none" />
+                      <span className="font-lora text-xs text-muted-foreground">×</span>
+                      <input type="number" min={1} max={10} value={tableCols}
+                        onChange={(e) => setTableCols(Number(e.target.value))}
+                        className="w-12 border border-border rounded px-1.5 py-1 font-lora text-xs bg-background focus:outline-none" />
                     </div>
                     <button onClick={doInsertTable}
                       className="w-full py-1.5 rounded-lg font-lora text-xs text-white transition-all"
@@ -354,7 +338,7 @@ export default function LoreTab({ initialTags, initialNotes, onSaveTags, onSaveN
             {editingNote ? (
               <div
                 ref={editorRef}
-                className="lore-editor w-full focus:outline-none scroll-custom"
+                className="ideas-editor w-full focus:outline-none scroll-custom"
                 contentEditable
                 suppressContentEditableWarning
                 dir="ltr"
@@ -366,7 +350,7 @@ export default function LoreTab({ initialTags, initialNotes, onSaveTags, onSaveN
               />
             ) : (
               <div
-                className="font-lora text-sm leading-7 text-foreground lore-editor"
+                className="font-lora text-sm leading-7 text-foreground ideas-editor"
                 dangerouslySetInnerHTML={{ __html: openNote.text || '<span style="color: var(--muted-foreground); font-style: italic;">Заметка пуста</span>' }}
               />
             )}

@@ -278,6 +278,7 @@ def handler(event: dict, context) -> dict:
             cur.execute(
                 """SELECT id, title, genre, words, manuscript, synopsis,
                           characters, plan, lore_tags, lore_notes,
+                          ideas_tags, ideas_notes,
                           created_at, updated_at
                    FROM books WHERE id=%s AND user_id=%s""",
                 (book_id, user_id)
@@ -290,7 +291,8 @@ def handler(event: dict, context) -> dict:
                 'manuscript': row[4], 'synopsis': row[5],
                 'characters': row[6], 'plan': row[7],
                 'lore_tags': row[8], 'lore_notes': row[9],
-                'created_at': str(row[10]), 'updated_at': str(row[11])
+                'ideas_tags': row[10], 'ideas_notes': row[11],
+                'created_at': str(row[12]), 'updated_at': str(row[13])
             }
             return {'statusCode': 200, 'headers': CORS, 'body': {'book': book}}
 
@@ -330,6 +332,10 @@ def handler(event: dict, context) -> dict:
                 fields.append("lore_tags=%s"); values.append(body['lore_tags'])
             if 'lore_notes' in body:
                 fields.append("lore_notes=%s"); values.append(body['lore_notes'])
+            if 'ideas_tags' in body:
+                fields.append("ideas_tags=%s"); values.append(body['ideas_tags'])
+            if 'ideas_notes' in body:
+                fields.append("ideas_notes=%s"); values.append(body['ideas_notes'])
             if not fields:
                 return {'statusCode': 400, 'headers': CORS, 'body': {'error': 'Нечего обновлять'}}
             fields.append("updated_at=NOW()")
