@@ -422,12 +422,15 @@ const QUESTIONNAIRE_FIELDS = [
   { key: "arc",          label: "Как меняется по ходу истории" },
 ];
 
-const ROLE_COLORS: Record<string, string> = {
-  "Главный герой":  "hsl(267 45% 38%)",
-  "Антагонист":     "hsl(0 55% 45%)",
-  "Союзник":        "hsl(150 40% 38%)",
-  "Второстепенный": "hsl(210 40% 45%)",
-};
+const ROLES = [
+  { label: "Главный герой",    color: "hsl(267 45% 38%)" },
+  { label: "Герой-помощник",   color: "hsl(150 40% 38%)" },
+  { label: "Любовный интерес", color: "hsl(330 45% 42%)" },
+  { label: "Антагонист",       color: "hsl(0 55% 45%)"  },
+  { label: "Второстепенный",   color: "hsl(210 40% 45%)" },
+];
+
+const ROLE_COLORS: Record<string, string> = Object.fromEntries(ROLES.map((r) => [r.label, r.color]));
 
 const DEFAULT_CHARS: Character[] = [
   {
@@ -465,7 +468,7 @@ function CharactersTab() {
   const [draft, setDraft] = useState<Character | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [newName, setNewName] = useState("");
-  const [newRole, setNewRole] = useState("Главный герой");
+  const [newRole, setNewRole] = useState(ROLES[0].label);
 
   const openCard = (c: Character, v: "card" | "questionnaire") => {
     setSelected(c);
@@ -514,13 +517,19 @@ function CharactersTab() {
             return (
               <div key={c.id} className="group p-5 rounded-xl border border-border bg-card hover-lift transition-all">
                 <div className="flex items-start gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center font-cormorant text-lg font-medium text-white flex-shrink-0"
-                    style={{ background: color }}>
-                    {c.name[0]}
-                  </div>
+                  {c.photo ? (
+                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 border border-border">
+                      <img src={c.photo} alt={c.name} className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-cormorant text-lg font-medium text-white flex-shrink-0"
+                      style={{ background: color }}>
+                      {c.name[0]}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-cormorant text-lg font-medium leading-tight">{c.name}</h3>
-                    <span className="font-lora text-xs px-2 py-0.5 rounded-full mt-0.5 inline-block"
+                    <span className="font-lora text-xs px-2 py-0.5 rounded-full mt-1 inline-block"
                       style={{ background: `${color}22`, color }}>
                       {c.role}
                     </span>
@@ -567,10 +576,19 @@ function CharactersTab() {
                 </div>
                 <div>
                   <label className="font-lora text-sm text-muted-foreground block mb-1.5">Роль</label>
-                  <select value={newRole} onChange={(e) => setNewRole(e.target.value)}
-                    className="w-full border border-border rounded-lg px-3 py-2.5 font-lora text-sm bg-background focus:outline-none">
-                    {Object.keys(ROLE_COLORS).map((r) => <option key={r}>{r}</option>)}
-                  </select>
+                  <div className="flex flex-wrap gap-2">
+                    {ROLES.map((r) => (
+                      <button key={r.label} type="button"
+                        onClick={() => setNewRole(r.label)}
+                        className="font-lora text-xs px-3 py-1.5 rounded-full border transition-all"
+                        style={newRole === r.label
+                          ? { background: r.color, color: "#fff", borderColor: r.color }
+                          : { background: `${r.color}18`, color: r.color, borderColor: `${r.color}44` }
+                        }>
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
@@ -606,17 +624,39 @@ function CharactersTab() {
       </button>
 
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="w-14 h-14 rounded-full flex items-center justify-center font-cormorant text-2xl font-medium text-white flex-shrink-0"
-          style={{ background: color }}>
-          {selected.name[0]}
-        </div>
+      <div className="flex items-start gap-4 mb-6">
+        {(draft.photo || selected.photo) ? (
+          <div className="w-14 h-14 rounded-full overflow-hidden border border-border flex-shrink-0">
+            <img src={(editing ? draft.photo : selected.photo) ?? ""} alt={selected.name} className="w-full h-full object-cover" />
+          </div>
+        ) : (
+          <div className="w-14 h-14 rounded-full flex items-center justify-center font-cormorant text-2xl font-medium text-white flex-shrink-0"
+            style={{ background: color }}>
+            {selected.name[0]}
+          </div>
+        )}
         <div className="flex-1">
           <h2 className="font-cormorant text-3xl font-light">{selected.name}</h2>
-          <span className="font-lora text-xs px-2 py-0.5 rounded-full"
-            style={{ background: `${color}22`, color }}>
-            {selected.role}
-          </span>
+          {editing ? (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {ROLES.map((r) => (
+                <button key={r.label} type="button"
+                  onClick={() => setDraft({ ...draft, role: r.label })}
+                  className="font-lora text-xs px-2.5 py-1 rounded-full border transition-all"
+                  style={draft.role === r.label
+                    ? { background: r.color, color: "#fff", borderColor: r.color }
+                    : { background: `${r.color}15`, color: r.color, borderColor: `${r.color}40` }
+                  }>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="font-lora text-xs px-2 py-0.5 rounded-full mt-1 inline-block"
+              style={{ background: `${color}22`, color }}>
+              {selected.role}
+            </span>
+          )}
         </div>
         <div className="flex gap-2">
           {!editing && (
@@ -870,12 +910,22 @@ function PlanTab() {
 
   const saveEdit = () => {
     if (!editingEp) return;
-    setSections(sections.map((sec) =>
-      sec.id !== editingEp.sectionId ? sec : {
-        ...sec,
-        episodes: sec.episodes.map((e) => e.id === editingEp.ep.id ? editingEp.ep : e),
-      }
-    ));
+    const { sectionId, newSectionId, ep } = editingEp as typeof editingEp & { newSectionId: string };
+    if (newSectionId && newSectionId !== sectionId) {
+      // move to different section
+      setSections(sections.map((sec) => {
+        if (sec.id === sectionId) return { ...sec, episodes: sec.episodes.filter((e) => e.id !== ep.id) };
+        if (sec.id === newSectionId) return { ...sec, episodes: [...sec.episodes, ep] };
+        return sec;
+      }));
+    } else {
+      setSections(sections.map((sec) =>
+        sec.id !== sectionId ? sec : {
+          ...sec,
+          episodes: sec.episodes.map((e) => e.id === ep.id ? ep : e),
+        }
+      ));
+    }
     setEditingEp(null);
   };
 
@@ -884,6 +934,18 @@ function PlanTab() {
       sec.id !== sectionId ? sec : { ...sec, episodes: sec.episodes.filter((e) => e.id !== epId) }
     ));
     setEditingEp(null);
+  };
+
+  const moveEp = (sectionId: string, epId: number, dir: -1 | 1) => {
+    setSections(sections.map((sec) => {
+      if (sec.id !== sectionId) return sec;
+      const eps = [...sec.episodes];
+      const idx = eps.findIndex((e) => e.id === epId);
+      const next = idx + dir;
+      if (next < 0 || next >= eps.length) return sec;
+      [eps[idx], eps[next]] = [eps[next], eps[idx]];
+      return { ...sec, episodes: eps };
+    }));
   };
 
   return (
@@ -922,9 +984,9 @@ function PlanTab() {
                 <span className="font-lora text-[11px] text-muted-foreground uppercase tracking-wide">Описание</span>
                 <div />
               </div>
-              {sec.episodes.map((ep) => (
+              {sec.episodes.map((ep, epIdx) => (
                 <div key={ep.id}
-                  className={`grid grid-cols-[2rem_1fr_2fr_5rem] gap-3 px-4 py-3 items-start transition-colors ${ep.done ? "bg-muted/20" : "bg-card"}`}>
+                  className={`grid grid-cols-[2rem_1fr_2fr_6rem] gap-3 px-4 py-3 items-start transition-colors ${ep.done ? "bg-muted/20" : "bg-card"}`}>
                   {/* Checkbox */}
                   <button onClick={() => toggleDone(sec.id, ep.id)}
                     className="mt-0.5 w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-all"
@@ -945,8 +1007,16 @@ function PlanTab() {
                   </span>
 
                   {/* Actions */}
-                  <div className="flex gap-1 justify-end">
-                    <button onClick={() => setEditingEp({ sectionId: sec.id, ep: { ...ep } })}
+                  <div className="flex gap-0.5 justify-end items-start">
+                    <button onClick={() => moveEp(sec.id, ep.id, -1)} disabled={epIdx === 0}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-25">
+                      <Icon name="ChevronUp" size={12} />
+                    </button>
+                    <button onClick={() => moveEp(sec.id, ep.id, 1)} disabled={epIdx === sec.episodes.length - 1}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-25">
+                      <Icon name="ChevronDown" size={12} />
+                    </button>
+                    <button onClick={() => setEditingEp({ sectionId: sec.id, newSectionId: sec.id, ep: { ...ep } } as Parameters<typeof setEditingEp>[0])}
                       className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                       <Icon name="Pencil" size={12} />
                     </button>
@@ -1012,8 +1082,27 @@ function PlanTab() {
                 <label className="font-lora text-sm text-muted-foreground block mb-1.5">Описание</label>
                 <textarea value={editingEp.ep.description}
                   onChange={(e) => setEditingEp({ ...editingEp, ep: { ...editingEp.ep, description: e.target.value } })}
-                  rows={4}
+                  rows={3}
                   className="w-full border border-border rounded-lg px-3 py-2.5 font-lora text-sm bg-background resize-none focus:outline-none scroll-custom" />
+              </div>
+              <div>
+                <label className="font-lora text-sm text-muted-foreground block mb-1.5">Раздел</label>
+                <div className="flex flex-wrap gap-2">
+                  {sections.map((sec) => {
+                    const currentSectionId = (editingEp as typeof editingEp & { newSectionId?: string }).newSectionId ?? editingEp.sectionId;
+                    return (
+                      <button key={sec.id} type="button"
+                        onClick={() => setEditingEp({ ...editingEp, newSectionId: sec.id } as Parameters<typeof setEditingEp>[0])}
+                        className="font-lora text-xs px-3 py-1.5 rounded-full border transition-all"
+                        style={currentSectionId === sec.id
+                          ? { background: sec.color, color: "#fff", borderColor: sec.color }
+                          : { background: `${sec.color}15`, color: sec.color, borderColor: `${sec.color}40` }
+                        }>
+                        {sec.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
             <div className="flex gap-3 mt-6">
