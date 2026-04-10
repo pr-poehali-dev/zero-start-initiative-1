@@ -626,6 +626,17 @@ function ManuscriptTab({ initialText, onSave, bookId }: { initialText: string; o
             <div className="flex-1 flex flex-col rounded-xl border border-border overflow-hidden bg-card min-w-0">
               {/* Toolbar */}
               <div className="flex items-center gap-0.5 px-3 py-2 border-b border-border bg-muted/20 flex-wrap">
+                {/* Undo / Redo */}
+                <button onClick={() => execCmd("undo")} title="Отменить (Ctrl+Z)"
+                  className="px-2 py-1.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                  <Icon name="Undo2" size={13} />
+                </button>
+                <button onClick={() => execCmd("redo")} title="Повторить (Ctrl+Y)"
+                  className="px-2 py-1.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                  <Icon name="Redo2" size={13} />
+                </button>
+                <div className="w-px h-4 bg-border mx-1" />
+                {/* Formatting */}
                 <button onClick={() => execCmd("bold")} title="Жирный"
                   className="px-2.5 py-1.5 rounded font-bold text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   style={{ fontFamily: '"Times New Roman", serif' }}>Ж</button>
@@ -636,13 +647,18 @@ function ManuscriptTab({ initialText, onSave, bookId }: { initialText: string; o
                   className="px-2.5 py-1.5 rounded underline text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                   style={{ fontFamily: '"Times New Roman", serif' }}>Ч</button>
                 <div className="w-px h-4 bg-border mx-1" />
+                {/* Block formats */}
                 <button onClick={() => execCmd("formatBlock", "h2")} title="Заголовок"
                   className="px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
                   Заголовок
                 </button>
-                <button onClick={() => execCmd("formatBlock", "p")} title="Обычный текст"
+                <button onClick={() => execCmd("formatBlock", "p")} title="Абзац"
                   className="px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
                   Абзац
+                </button>
+                <button onClick={() => execCmd("removeFormat")} title="Убрать форматирование"
+                  className="px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
+                  Обычный
                 </button>
               </div>
 
@@ -952,8 +968,8 @@ function CharactersTab() {
                   )}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-cormorant text-lg font-medium leading-none mb-1">{c.name}</h3>
-                    <span className="font-lora text-xs px-2 py-0.5 rounded-full inline-block"
-                      style={{ background: `${color}22`, color }}>
+                    <span className="font-lora text-xs px-2 py-0.5 rounded-full inline-block border"
+                      style={{ background: `${color}18`, color, borderColor: `${color}55` }}>
                       {c.role}
                     </span>
                   </div>
@@ -1000,17 +1016,20 @@ function CharactersTab() {
                 <div>
                   <label className="font-lora text-sm text-muted-foreground block mb-1.5">Роль</label>
                   <div className="flex flex-wrap gap-2">
-                    {ROLES.map((r) => (
-                      <button key={r.label} type="button"
-                        onClick={() => setNewRole(r.label)}
-                        className="font-lora text-xs px-3 py-1.5 rounded-full border transition-all"
-                        style={newRole === r.label
-                          ? { background: r.color, color: "#fff", borderColor: r.color }
-                          : { background: `${r.color}18`, color: r.color, borderColor: `${r.color}44` }
-                        }>
-                        {r.label}
-                      </button>
-                    ))}
+                    {ROLES.map((r) => {
+                      const isActive = newRole === r.label;
+                      return (
+                        <button key={r.label} type="button"
+                          onClick={() => setNewRole(r.label)}
+                          className="font-lora text-xs px-3 py-1.5 rounded-full border transition-all"
+                          style={isActive
+                            ? { background: r.color, color: "#fff", borderColor: r.color }
+                            : { background: "transparent", color: r.color, borderColor: `${r.color}60` }
+                          }>
+                          {r.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -1062,17 +1081,20 @@ function CharactersTab() {
           <h2 className="font-cormorant text-3xl font-light">{selected.name}</h2>
           {editing ? (
             <div className="flex flex-wrap gap-1.5 mt-2">
-              {ROLES.map((r) => (
-                <button key={r.label} type="button"
-                  onClick={() => setDraft({ ...draft, role: r.label })}
-                  className="font-lora text-xs px-2.5 py-1 rounded-full border transition-all"
-                  style={draft.role === r.label
-                    ? { background: r.color, color: "#fff", borderColor: r.color }
-                    : { background: `${r.color}15`, color: r.color, borderColor: `${r.color}40` }
-                  }>
-                  {r.label}
-                </button>
-              ))}
+              {ROLES.map((r) => {
+                const isActive = draft.role === r.label;
+                return (
+                  <button key={r.label} type="button"
+                    onClick={() => setDraft({ ...draft, role: r.label })}
+                    className="font-lora text-xs px-2.5 py-1 rounded-full border transition-all"
+                    style={isActive
+                      ? { background: r.color, color: "#fff", borderColor: r.color }
+                      : { background: "transparent", color: r.color, borderColor: `${r.color}60` }
+                    }>
+                    {r.label}
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <span className="font-lora text-xs px-2 py-0.5 rounded-full mt-1 inline-block"
@@ -1833,8 +1855,8 @@ function LoreTab() {
                 {note.tagIds.map((tid) => {
                   const t = tagById(tid);
                   return t ? (
-                    <span key={tid} className="font-lora text-[11px] px-2 py-0.5 rounded-full"
-                      style={{ background: `${t.color}18`, color: t.color }}>
+                    <span key={tid} className="font-lora text-[11px] px-2 py-0.5 rounded-full border"
+                      style={{ background: `${t.color}12`, color: t.color, borderColor: `${t.color}55` }}>
                       {t.label}
                     </span>
                   ) : null;
