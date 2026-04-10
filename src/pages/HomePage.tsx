@@ -1,32 +1,12 @@
+import { books, totalWords, totalChars } from "@/data/books";
+
 type Page = "home" | "books" | "stats" | "profile" | "help";
 
 interface Props {
   onNavigate: (page: Page) => void;
 }
 
-const recentBooks = [
-  {
-    title: "Осколки неба",
-    genre: "Фэнтези",
-    words: 34210,
-    progress: 68,
-    lastEdit: "сегодня",
-  },
-  {
-    title: "Письма без адреса",
-    genre: "Современная проза",
-    words: 12750,
-    progress: 25,
-    lastEdit: "вчера",
-  },
-  {
-    title: "Сад ночных цветов",
-    genre: "Магический реализм",
-    words: 51800,
-    progress: 91,
-    lastEdit: "3 дня назад",
-  },
-];
+const recentBooks = books;
 
 const quotes = [
   { text: "Писать — значит дышать по-другому.", author: "Маргерит Дюрас" },
@@ -135,21 +115,41 @@ export default function HomePage({ onNavigate }: Props) {
       </section>
 
       {/* Stats teaser */}
-      <section className="mt-12 grid grid-cols-3 gap-4">
-        {[
-          { label: "Слов за неделю", value: "4 820" },
-          { label: "Книг в работе", value: "3" },
-          { label: "Дней подряд", value: "12" },
-        ].map((stat) => (
-          <button
-            key={stat.label}
-            onClick={() => onNavigate("stats")}
-            className="text-center p-4 rounded-xl border border-border bg-card hover-lift transition-all"
-          >
-            <div className="font-cormorant text-3xl font-light text-violet mb-1">{stat.value}</div>
-            <div className="font-lora text-xs text-muted-foreground">{stat.label}</div>
-          </button>
-        ))}
+      <section className="mt-12 space-y-3">
+        {/* Total words across all books */}
+        <button
+          onClick={() => onNavigate("stats")}
+          className="w-full flex items-center justify-between px-6 py-4 rounded-xl border border-border bg-card hover-lift transition-all"
+        >
+          <div className="text-left">
+            <div className="font-cormorant text-3xl font-light text-violet leading-none">
+              {totalWords.toLocaleString("ru")}
+            </div>
+            <div className="font-lora text-xs text-muted-foreground mt-1">слов во всех книгах</div>
+          </div>
+          <div className="text-right">
+            <div className="font-cormorant text-2xl font-light text-violet/70 leading-none">
+              {totalChars.toLocaleString("ru")}
+            </div>
+            <div className="font-lora text-xs text-muted-foreground mt-1">знаков без пробелов</div>
+          </div>
+        </button>
+
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { label: "Книг в работе", value: String(books.length) },
+            { label: "Дней подряд", value: "12" },
+          ].map((stat) => (
+            <button
+              key={stat.label}
+              onClick={() => onNavigate("stats")}
+              className="text-center p-4 rounded-xl border border-border bg-card hover-lift transition-all"
+            >
+              <div className="font-cormorant text-3xl font-light text-violet mb-1">{stat.value}</div>
+              <div className="font-lora text-xs text-muted-foreground">{stat.label}</div>
+            </button>
+          ))}
+        </div>
       </section>
     </div>
   );

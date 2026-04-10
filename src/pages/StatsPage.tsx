@@ -1,3 +1,5 @@
+import { books, totalWords, totalChars } from "@/data/books";
+
 const weekDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const weekWords = [320, 0, 1200, 450, 800, 1500, 550];
 const maxWords = Math.max(...weekWords);
@@ -19,6 +21,33 @@ export default function StatsPage() {
   return (
     <div className="max-w-5xl mx-auto px-6 py-10 pb-24 md:pb-10">
       <h1 className="font-cormorant text-4xl font-light mb-8">Статистика</h1>
+
+      {/* All-time totals */}
+      <div className="p-6 rounded-xl border border-border bg-card mb-6">
+        <p className="font-cormorant text-base italic text-muted-foreground mb-3">Всего написано за всё время</p>
+        <div className="flex items-end gap-6">
+          <div>
+            <div className="font-cormorant text-5xl font-light text-violet leading-none">
+              {totalWords.toLocaleString("ru")}
+            </div>
+            <div className="font-lora text-xs text-muted-foreground mt-1">слов</div>
+          </div>
+          <div className="pb-0.5">
+            <div className="font-cormorant text-3xl font-light text-violet/60 leading-none">
+              {totalChars.toLocaleString("ru")}
+            </div>
+            <div className="font-lora text-xs text-muted-foreground mt-1">знаков без пробелов</div>
+          </div>
+        </div>
+        <div className="mt-4 pt-4 border-t border-border flex gap-6 flex-wrap">
+          {books.map((b) => (
+            <div key={b.id}>
+              <div className="font-lora text-sm font-medium">{b.words.toLocaleString("ru")} сл.</div>
+              <div className="font-lora text-xs text-muted-foreground">{b.title}</div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Key metrics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
