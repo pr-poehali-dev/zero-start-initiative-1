@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { wordsToChars } from "@/data/books";
+import { useState, useEffect } from "react";
 import { useBooks } from "@/hooks/useBooks";
 import Icon from "@/components/ui/icon";
 
 const WEEK_DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
 const MONTHS_RU = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
+const MONTHS_FULL = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
 
 const BOOK_COLORS = [
   "hsl(267 45% 42%)",
@@ -16,37 +16,44 @@ const BOOK_COLORS = [
 type Period = "week" | "month" | "year";
 type Metric = "words" | "chars";
 
-// Генерируем демо-данные на основе реального totalWords пользователя
-function makeWeekData(total: number): number[] {
-  if (total === 0) return [0, 0, 0, 0, 0, 0, 0];
-  const base = Math.round(total / 14); // среднее за 2 недели
-  return [
-    Math.round(base * 0.6), 0,
-    Math.round(base * 1.2), Math.round(base * 0.8), 0,
-    Math.round(base * 1.5), Math.round(base * 0.9),
-  ];
+const HISTORY_KEY = "scriptorium_writing_history"; // { "YYYY-MM-DD": chars_with_spaces }
+const PREV_CHARS_KEY = "scriptorium_prev_total_chars";
+
+function todayKey(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
-function makeMonthData(total: number): { day: number; words: number }[] {
-  const now = new Date();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  if (total === 0) return Array.from({ length: daysInMonth }, (_, i) => ({ day: i + 1, words: 0 }));
-  const base = Math.round(total / 14);
-  return Array.from({ length: daysInMonth }, (_, i) => ({
-    day: i + 1,
-    words: (i < 14 && i !== 1 && i !== 4) ? Math.round(base * (0.5 + Math.abs(Math.sin(i * 2.3)) * 1.2)) : 0,
-  }));
+function loadHistory(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "{}"); } catch { return {}; }
 }
 
-function makeYearData(total: number): { month: string; words: number }[] {
-  const now = new Date();
-  const curMonth = now.getMonth();
-  if (total === 0) return MONTHS_RU.map((m) => ({ month: m, words: 0 }));
-  return MONTHS_RU.map((m, i) => ({
-    month: m,
-    words: i <= curMonth && i >= curMonth - 3 ? Math.round(total * (0.1 + Math.abs(Math.sin(i * 1.7)) * 0.3)) : 0,
-  }));
+function saveHistory(h: Record<string, number>) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
 }
+
+// Записываем разницу знаков за сегодня
+function recordTodayChars(totalChars: number): Record<string, number> {
+  const prev = parseInt(localStorage.getItem(PREV_CHARS_KEY) || "0", 10);
+  const diff = totalChars - prev;
+  const history = loadHistory();
+  const key = todayKey();
+
+  if (diff > 0) {
+    history[key] = (history[key] || 0) + diff;
+    saveHistory(history);
+    localStorage.setItem(PREV_CHARS_KEY, String(totalChars));
+  } else if (prev === 0 && totalChars > 0) {
+    // Первый запуск — записываем всё сегодняшним днём
+    history[key] = (history[key] || 0) + totalChars;
+    saveHistory(history);
+    localStorage.setItem(PREV_CHARS_KEY, String(totalChars));
+  }
+  return history;
+}
+
+// chars → words (приблизительно)
+function charsToWords(chars: number) { return Math.round(chars / 5.5); }
+function wordsToChars(words: number) { return Math.round(words * 5.5); }
 
 export default function StatsPage() {
   const { books: userBooks } = useBooks();
@@ -55,17 +62,23 @@ export default function StatsPage() {
   const totalWords = realBooks.reduce((s, b) => s + b.words, 0);
   const totalChars = wordsToChars(totalWords);
 
-  const weekWords = makeWeekData(totalWords);
-  const monthData = makeMonthData(totalWords);
-  const yearMonths = makeYearData(totalWords);
-
+  const [history, setHistory] = useState<Record<string, number>>({});
   const [period, setPeriod] = useState<Period>("week");
-  const [metric, setMetric] = useState<Metric>("words");
+  const [metric, setMetric] = useState<Metric>("chars");
   const [bookGoals, setBookGoals] = useState<Record<number, number>>(() => {
     try { return JSON.parse(localStorage.getItem("scriptorium_book_goals") || "{}"); } catch { return {}; }
   });
   const [editingGoal, setEditingGoal] = useState<number | null>(null);
   const [goalDraft, setGoalDraft] = useState("");
+
+  useEffect(() => {
+    if (totalChars > 0) {
+      const h = recordTodayChars(totalChars);
+      setHistory(h);
+    } else {
+      setHistory(loadHistory());
+    }
+  }, [totalChars]);
 
   const setGoal = (bookId: number, chars: number) => {
     const updated = { ...bookGoals, [bookId]: chars };
@@ -73,27 +86,56 @@ export default function StatsPage() {
     localStorage.setItem("scriptorium_book_goals", JSON.stringify(updated));
   };
 
-  const totalThisWeek = weekWords.reduce((a, b) => a + b, 0);
-  const activeDays = weekWords.filter(Boolean).length;
-  const avgPerDay = activeDays > 0 ? Math.round(totalThisWeek / activeDays) : 0;
-  const bestDay = weekWords.indexOf(Math.max(...weekWords));
-
-  const toDisplay = (w: number) => metric === "words" ? w : wordsToChars(w);
+  const toDisplay = (chars: number) => metric === "words" ? charsToWords(chars) : chars;
   const label = metric === "words" ? "слов" : "зн.";
 
-  const weekValues = weekWords.map(toDisplay);
+  // ── WEEK DATA ──
+  const now = new Date();
+  const weekData: { day: string; date: string; chars: number }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    const jsDay = d.getDay(); // 0=Sun
+    const dayIdx = jsDay === 0 ? 6 : jsDay - 1;
+    weekData.push({ day: WEEK_DAYS[dayIdx], date: key, chars: history[key] || 0 });
+  }
+  const weekValues = weekData.map((d) => toDisplay(d.chars));
   const maxWeek = Math.max(...weekValues, 1);
+  const totalThisWeek = weekValues.reduce((a, b) => a + b, 0);
+  const activeDays = weekValues.filter(Boolean).length;
+  const avgPerDay = activeDays > 0 ? Math.round(totalThisWeek / activeDays) : 0;
+  const bestDayIdx = weekValues.indexOf(Math.max(...weekValues));
 
-  const maxMonth = Math.max(...monthData.map((d) => toDisplay(d.words)), 1);
+  // ── MONTH DATA ──
+  const curYear = now.getFullYear();
+  const curMonth = now.getMonth();
+  const daysInMonth = new Date(curYear, curMonth + 1, 0).getDate();
+  const monthData: { day: number; date: string; chars: number }[] = Array.from({ length: daysInMonth }, (_, i) => {
+    const d = i + 1;
+    const key = `${curYear}-${String(curMonth + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    return { day: d, date: key, chars: history[key] || 0 };
+  });
+  const monthValues = monthData.map((d) => toDisplay(d.chars));
+  const maxMonth = Math.max(...monthValues, 1);
 
-  const yearValues = yearMonths.map((m) => toDisplay(m.words));
+  const firstDayOfMonth = new Date(curYear, curMonth, 1).getDay();
+  const offsetDays = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+
+  // ── YEAR DATA ──
+  const yearData: { month: string; chars: number }[] = MONTHS_RU.map((m, i) => {
+    let total = 0;
+    const dInMonth = new Date(curYear, i + 1, 0).getDate();
+    for (let d = 1; d <= dInMonth; d++) {
+      const key = `${curYear}-${String(i + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      total += history[key] || 0;
+    }
+    return { month: m, chars: total };
+  });
+  const yearValues = yearData.map((d) => toDisplay(d.chars));
   const maxYear = Math.max(...yearValues, 1);
 
-  // Текущий месяц и год
-  const now = new Date();
-  const monthName = MONTHS_RU[now.getMonth()];
-  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
-  const offsetDays = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+  const monthName = MONTHS_FULL[curMonth];
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10 pb-24 md:pb-10 space-y-6">
@@ -113,7 +155,7 @@ export default function StatsPage() {
             <div className="font-cormorant text-4xl font-light text-violet leading-none mb-1">
               {totalChars.toLocaleString("ru")}
             </div>
-            <div className="font-lora text-xs text-muted-foreground">знаков без пробелов</div>
+            <div className="font-lora text-xs text-muted-foreground">знаков (с пробелами)</div>
           </div>
         </div>
 
@@ -195,25 +237,20 @@ export default function StatsPage() {
 
       {/* ── CHARTS ── */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        {/* Period + metric toggles */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex gap-1 p-1 bg-muted rounded-lg">
             {(["week", "month", "year"] as Period[]).map((p) => (
               <button key={p} onClick={() => setPeriod(p)}
-                className={`px-3 py-1.5 rounded-md font-lora text-xs transition-all ${
-                  period === p ? "text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`px-3 py-1.5 rounded-md font-lora text-xs transition-all ${period === p ? "text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 style={period === p ? { background: 'hsl(var(--violet))' } : {}}>
                 {p === "week" ? "Неделя" : p === "month" ? "Месяц" : "Год"}
               </button>
             ))}
           </div>
           <div className="flex gap-1 p-1 bg-muted rounded-lg">
-            {(["words", "chars"] as Metric[]).map((m) => (
+            {(["chars", "words"] as Metric[]).map((m) => (
               <button key={m} onClick={() => setMetric(m)}
-                className={`px-3 py-1.5 rounded-md font-lora text-xs transition-all ${
-                  metric === m ? "text-white shadow-sm" : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`px-3 py-1.5 rounded-md font-lora text-xs transition-all ${metric === m ? "text-white shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 style={metric === m ? { background: 'hsl(var(--violet))' } : {}}>
                 {m === "words" ? "Слова" : "Знаки"}
               </button>
@@ -222,24 +259,27 @@ export default function StatsPage() {
         </div>
 
         <div className="p-6">
-          {/* WEEK BAR CHART */}
+          {/* WEEK */}
           {period === "week" && (
             <div className="flex items-end gap-2 h-40">
-              {weekValues.map((val, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-                  <span className="font-lora text-[10px] text-muted-foreground">
-                    {val > 0 ? (val >= 1000 ? `${(val / 1000).toFixed(1)}к` : val) : ""}
-                  </span>
-                  <div className="w-full rounded-md transition-all"
-                    style={{
-                      height: val > 0 ? `${Math.max(4, (val / maxWeek) * 120)}px` : '4px',
-                      background: val > 0
-                        ? `hsl(var(--violet) / ${0.45 + (val / maxWeek) * 0.55})`
-                        : 'hsl(var(--muted))',
-                    }} />
-                  <span className="font-lora text-xs text-muted-foreground">{WEEK_DAYS[i]}</span>
-                </div>
-              ))}
+              {weekData.map((d, i) => {
+                const val = weekValues[i];
+                return (
+                  <div key={d.date} className="flex-1 flex flex-col items-center gap-1.5">
+                    <span className="font-lora text-[10px] text-muted-foreground">
+                      {val > 0 ? (val >= 1000 ? `${(val / 1000).toFixed(1)}к` : val) : ""}
+                    </span>
+                    <div className="w-full rounded-md transition-all"
+                      style={{
+                        height: val > 0 ? `${Math.max(6, (val / maxWeek) * 120)}px` : '4px',
+                        background: val > 0
+                          ? `hsl(var(--violet) / ${0.45 + (val / maxWeek) * 0.55})`
+                          : 'hsl(var(--muted))',
+                      }} />
+                    <span className="font-lora text-xs text-muted-foreground">{d.day}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -247,36 +287,48 @@ export default function StatsPage() {
           {period === "month" && (
             <div>
               <div className="grid grid-cols-7 gap-1 mb-1">
-                {["Пн","Вт","Ср","Чт","Пт","Сб","Вс"].map((d) => (
+                {WEEK_DAYS.map((d) => (
                   <div key={d} className="font-lora text-[10px] text-muted-foreground/60 text-center">{d}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-1">
                 {Array.from({ length: offsetDays }).map((_, i) => <div key={`off-${i}`} />)}
                 {monthData.map((d) => {
-                  const val = toDisplay(d.words);
+                  const val = toDisplay(d.chars);
+                  const hasData = val > 0;
                   return (
                     <div key={d.day}
-                      title={`${d.day} ${monthName}: ${val.toLocaleString("ru")} ${label}`}
-                      className="aspect-square rounded-sm transition-all hover:scale-110 cursor-default relative group">
-                      <div className="w-full h-full rounded-sm"
-                        style={{
-                          background: val > 0
-                            ? `hsl(var(--violet) / ${0.15 + (val / maxMonth) * 0.85})`
-                            : 'hsl(var(--muted))',
-                        }} />
-                      <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-foreground text-background font-lora text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                        {d.day} {monthName}
+                      className="aspect-square rounded-sm transition-all hover:scale-105 cursor-default relative group"
+                      style={{
+                        background: hasData
+                          ? `hsl(var(--violet) / ${0.2 + (val / maxMonth) * 0.8})`
+                          : 'hsl(var(--muted))',
+                      }}>
+                      {/* Число */}
+                      <span className="absolute top-0.5 left-1 font-lora leading-none"
+                        style={{ fontSize: '9px', color: hasData ? 'rgba(255,255,255,0.85)' : 'hsl(var(--muted-foreground))' }}>
+                        {d.day}
+                      </span>
+                      {/* Значение при наведении */}
+                      {hasData && (
+                        <span className="absolute bottom-0.5 left-0 right-0 text-center font-lora leading-none text-white/90"
+                          style={{ fontSize: '8px' }}>
+                          {val >= 1000 ? `${(val / 1000).toFixed(1)}к` : val}
+                        </span>
+                      )}
+                      {/* Tooltip */}
+                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-foreground text-background font-lora text-[10px] px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                        {d.day} {monthName}: {val > 0 ? `${val.toLocaleString("ru")} ${label}` : "нет данных"}
                       </div>
                     </div>
                   );
                 })}
               </div>
               <div className="flex items-center gap-2 mt-3 justify-between">
-                <span className="font-lora text-xs text-muted-foreground">{monthName} {now.getFullYear()}</span>
+                <span className="font-lora text-xs text-muted-foreground">{monthName} {curYear}</span>
                 <div className="flex items-center gap-1.5">
                   <span className="font-lora text-xs text-muted-foreground">меньше</span>
-                  {[0.15, 0.35, 0.55, 0.75, 1].map((o) => (
+                  {[0.2, 0.4, 0.6, 0.8, 1].map((o) => (
                     <div key={o} className="w-3 h-3 rounded-sm"
                       style={{ background: `hsl(var(--violet) / ${o})` }} />
                   ))}
@@ -286,28 +338,31 @@ export default function StatsPage() {
             </div>
           )}
 
-          {/* YEAR BAR CHART */}
+          {/* YEAR */}
           {period === "year" && (
             <div>
               <div className="flex items-end gap-1.5 h-40 mb-1">
-                {yearValues.map((val, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-                    <span className="font-lora text-[10px] text-muted-foreground">
-                      {val > 0 ? `${Math.round(val / 1000)}к` : ""}
-                    </span>
-                    <div className="w-full rounded-md transition-all"
-                      style={{
-                        height: val > 0 ? `${Math.max(4, (val / maxYear) * 120)}px` : '4px',
-                        background: val > 0
-                          ? `hsl(var(--violet) / ${0.45 + (val / maxYear) * 0.55})`
-                          : 'hsl(var(--muted))',
-                      }} />
-                    <span className="font-lora text-xs text-muted-foreground">{MONTHS_RU[i]}</span>
-                  </div>
-                ))}
+                {yearData.map((d, i) => {
+                  const val = yearValues[i];
+                  return (
+                    <div key={d.month} className="flex-1 flex flex-col items-center gap-1.5">
+                      <span className="font-lora text-[10px] text-muted-foreground">
+                        {val > 0 ? `${Math.round(val / 1000)}к` : ""}
+                      </span>
+                      <div className="w-full rounded-md transition-all"
+                        style={{
+                          height: val > 0 ? `${Math.max(6, (val / maxYear) * 120)}px` : '4px',
+                          background: val > 0
+                            ? `hsl(var(--violet) / ${0.45 + (val / maxYear) * 0.55})`
+                            : 'hsl(var(--muted))',
+                        }} />
+                      <span className="font-lora text-xs text-muted-foreground">{d.month}</span>
+                    </div>
+                  );
+                })}
               </div>
               <div className="flex justify-between mt-2">
-                <span className="font-lora text-xs text-muted-foreground">2026 год</span>
+                <span className="font-lora text-xs text-muted-foreground">{curYear} год</span>
                 <span className="font-lora text-xs text-muted-foreground">
                   итого: {yearValues.reduce((a, b) => a + b, 0).toLocaleString("ru")} {label}
                 </span>
@@ -320,10 +375,10 @@ export default function StatsPage() {
       {/* ── KEY METRICS ── */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "За неделю",   value: toDisplay(totalThisWeek).toLocaleString("ru"), unit: label },
-          { label: "В среднем",   value: toDisplay(avgPerDay).toLocaleString("ru"),     unit: `${label} / день` },
-          { label: "Лучший день", value: WEEK_DAYS[bestDay],                             unit: "эта неделя" },
-          { label: "Серия",       value: String(activeDays),                              unit: "дней подряд" },
+          { label: "За неделю",   value: totalThisWeek.toLocaleString("ru"),              unit: label },
+          { label: "В среднем",   value: avgPerDay.toLocaleString("ru"),                   unit: `${label} / день` },
+          { label: "Лучший день", value: activeDays > 0 ? weekData[bestDayIdx]?.day : "—", unit: "эта неделя" },
+          { label: "Активных",    value: String(activeDays),                               unit: "дней за неделю" },
         ].map((s) => (
           <div key={s.label} className="p-4 rounded-xl border border-border bg-card text-center">
             <div className="font-cormorant text-3xl font-light text-violet leading-none mb-0.5">{s.value}</div>

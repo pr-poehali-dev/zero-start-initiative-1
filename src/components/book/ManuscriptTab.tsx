@@ -1,23 +1,40 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 
 interface ManuscriptChapter {
   id: number;
   title: string;
-  content: string;
+  content: string; // HTML
 }
 
-// Конвертация HTML → plain text (для старых данных с contentEditable)
-function htmlToPlain(html: string): string {
-  if (!html || !/<[a-z][\s\S]*>/i.test(html)) return html;
-  const div = document.createElement("div");
-  div.innerHTML = html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<\/div>/gi, "\n")
-    .replace(/<\/h[1-6]>/gi, "\n")
-    .replace(/<hr[^>]*>/gi, "\n---\n");
-  return (div.textContent ?? "").replace(/\n{3,}/g, "\n\n").trim();
+const EDITOR_STYLES = `
+  .ms-editor { outline: none; font-family: "Times New Roman", Times, serif; font-size: 14pt; line-height: 1.8; min-height: 420px; padding: 2rem 3rem; direction: ltr; }
+  .ms-editor:focus { outline: none; }
+  .ms-editor p { margin: 0 0 0.5em; }
+  .ms-editor b, .ms-editor strong { font-weight: bold; }
+  .ms-editor i, .ms-editor em { font-style: italic; }
+  .ms-editor u { text-decoration: underline; }
+  .ms-editor h2 { font-size: 16pt; font-weight: bold; margin: 1.2em 0 0.4em; }
+  .ms-editor hr { border: none; border-top: 1px solid #ccc; margin: 1.5em 0; }
+`;
+
+function injectStyles() {
+  if (typeof document === "undefined" || document.getElementById("ms-editor-styles")) return;
+  const s = document.createElement("style");
+  s.id = "ms-editor-styles";
+  s.textContent = EDITOR_STYLES;
+  document.head.appendChild(s);
+}
+
+// Конвертация plain text → HTML (для старых данных без тегов)
+function plainToHtml(text: string): string {
+  if (!text) return "";
+  // Если уже есть HTML-теги — возвращаем как есть
+  if (/<[a-z][\s\S]*>/i.test(text)) return text;
+  return text
+    .split("\n")
+    .map((line) => line.trim() === "" ? "<p><br></p>" : `<p>${line}</p>`)
+    .join("");
 }
 
 function parseInitialChapters(raw: string): ManuscriptChapter[] {
@@ -27,27 +44,28 @@ function parseInitialChapters(raw: string): ManuscriptChapter[] {
     if (Array.isArray(parsed) && parsed.length > 0 && "title" in parsed[0]) {
       return parsed.map((ch: ManuscriptChapter) => ({
         ...ch,
-        content: htmlToPlain(ch.content),
+        content: plainToHtml(ch.content),
       }));
     }
   } catch (_e) { /* not JSON */ }
-  return [{ id: 1, title: "Глава 1", content: htmlToPlain(raw) }];
+  return [{ id: 1, title: "Глава 1", content: plainToHtml(raw) }];
 }
 
 function serializeChapters(chs: ManuscriptChapter[]): string {
   return JSON.stringify(chs);
 }
 
-// Вставить текст в позицию курсора textarea
-function insertAtCursor(el: HTMLTextAreaElement, before: string, after = "") {
-  const start = el.selectionStart;
-  const end = el.selectionEnd;
-  const sel = el.value.substring(start, end);
-  const newVal = el.value.substring(0, start) + before + sel + after + el.value.substring(end);
-  return { value: newVal, cursor: start + before.length + sel.length + after.length };
+// Считаем текст из HTML (без тегов) для счётчиков
+function htmlToText(html: string): string {
+  if (!html) return "";
+  const d = document.createElement("div");
+  d.innerHTML = html;
+  return d.textContent ?? "";
 }
 
-export default function ManuscriptTab({ initialText, onSave, bookId }: { initialText: string; onSave: (t: string) => void; bookId: number }) {
+export default function ManuscriptTab({ initialText, onSave }: { initialText: string; onSave: (t: string) => void; bookId: number }) {
+  injectStyles();
+
   const initChapters = parseInitialChapters(initialText);
   const isEmpty = initChapters.length === 0;
 
@@ -58,8 +76,14 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
   const [titleDraft, setTitleDraft] = useState("");
   const [copied, setCopied] = useState(false);
   const [mobileChOpen, setMobileChOpen] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const editorRef = useRef<HTMLDivElement>(null);
+  const activeChIdRef = useRef(activeChId);
+  const chaptersRef = useRef(chapters);
   const mobileDropRef = useRef<HTMLDivElement>(null);
+
+  activeChIdRef.current = activeChId;
+  chaptersRef.current = chapters;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -71,23 +95,56 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const activeCh = chapters.find((c) => c.id === activeChId) ?? null;
-  const fullText = chapters.map((c) => `${c.title}\n\n${c.content}`).join("\n\n---\n\n");
+  // Обновляем innerHTML редактора при смене активной главы
+  useEffect(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    const ch = chapters.find((c) => c.id === activeChId);
+    const html = ch?.content ?? "";
+    // Только если содержимое реально отличается, чтобы не сбрасывать курсор
+    if (el.innerHTML !== html) {
+      el.innerHTML = html;
+    }
+    el.focus();
+  }, [activeChId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const saveChapters = (updated: ManuscriptChapter[]) => onSave(serializeChapters(updated));
+  const saveChapters = useCallback((updated: ManuscriptChapter[]) => {
+    onSave(serializeChapters(updated));
+  }, [onSave]);
 
-  const updateChContent = (id: number, content: string) => {
-    const updated = chapters.map((c) => c.id === id ? { ...c, content } : c);
+  const handleInput = useCallback(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    const html = el.innerHTML;
+    const id = activeChIdRef.current;
+    const updated = chaptersRef.current.map((c) => c.id === id ? { ...c, content: html } : c);
+    chaptersRef.current = updated;
     setChapters(updated);
     saveChapters(updated);
+  }, [saveChapters]);
+
+  const execCmd = useCallback((cmd: string, val?: string) => {
+    editorRef.current?.focus();
+    document.execCommand(cmd, false, val);
+  }, []);
+
+  const activeCh = chapters.find((c) => c.id === activeChId) ?? null;
+
+  const fullText = chapters.map((c) => {
+    const d = document.createElement("div");
+    d.innerHTML = c.content;
+    return `${c.title}\n\n${d.textContent ?? ""}`;
+  }).join("\n\n---\n\n");
+
+  const saveChapters2 = (updated: ManuscriptChapter[]) => {
+    setChapters(updated);
+    onSave(serializeChapters(updated));
   };
 
   const saveChTitle = (id: number) => {
     if (!titleDraft.trim()) { setEditingChTitle(null); return; }
-    const updated = chapters.map((c) => c.id === id ? { ...c, title: titleDraft.trim() } : c);
-    setChapters(updated);
+    saveChapters2(chapters.map((c) => c.id === id ? { ...c, title: titleDraft.trim() } : c));
     setEditingChTitle(null);
-    saveChapters(updated);
   };
 
   const addChapter = () => {
@@ -97,14 +154,14 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
     const updated = [...chapters, newCh];
     setChapters(updated);
     setActiveChId(newCh.id);
-    saveChapters(updated);
+    onSave(serializeChapters(updated));
   };
 
   const deleteCh = (id: number) => {
     const updated = chapters.filter((c) => c.id !== id);
     setChapters(updated);
     if (activeChId === id) setActiveChId(updated[0]?.id ?? -1);
-    saveChapters(updated);
+    onSave(serializeChapters(updated));
   };
 
   const moveCh = (id: number, dir: -1 | 1) => {
@@ -113,29 +170,14 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
     if (next < 0 || next >= chapters.length) return;
     const arr = [...chapters];
     [arr[idx], arr[next]] = [arr[next], arr[idx]];
-    setChapters(arr);
-    saveChapters(arr);
+    saveChapters2(arr);
   };
 
-  // Форматирование textarea через оборачивание выделенного текста
-  const wrapSelection = (before: string, after = before) => {
-    const el = textareaRef.current;
-    if (!el || !activeCh) return;
-    const { value, cursor } = insertAtCursor(el, before, after);
-    updateChContent(activeCh.id, value);
-    setTimeout(() => { el.focus(); el.selectionStart = el.selectionEnd = cursor; }, 0);
-  };
+  // Счётчики — с пробелами
+  const totalChars = chapters.reduce((s, c) => s + htmlToText(c.content).length, 0);
+  const totalWords = chapters.reduce((s, c) => s + htmlToText(c.content).trim().split(/\s+/).filter(Boolean).length, 0);
 
-  const insertText = (text: string) => {
-    const el = textareaRef.current;
-    if (!el || !activeCh) return;
-    const { value, cursor } = insertAtCursor(el, text);
-    updateChContent(activeCh.id, value);
-    setTimeout(() => { el.focus(); el.selectionStart = el.selectionEnd = cursor; }, 0);
-  };
-
-  const totalWords = chapters.reduce((s, c) => s + c.content.trim().split(/\s+/).filter(Boolean).length, 0);
-  const totalChars = chapters.reduce((s, c) => s + c.content.replace(/\s/g, "").length, 0);
+  const activeChWords = activeCh ? htmlToText(activeCh.content).trim().split(/\s+/).filter(Boolean).length : 0;
 
   const copyText = async (text: string) => {
     await navigator.clipboard.writeText(text);
@@ -264,30 +306,47 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
               <div className="flex-1 flex flex-col rounded-xl border border-border overflow-hidden bg-card min-w-0">
                 {/* Toolbar */}
                 <div className="flex items-center gap-0.5 px-3 py-2 border-b border-border bg-muted/20 flex-wrap">
-                  <button onClick={() => wrapSelection("**")} title="Жирный"
+                  <button onClick={() => execCmd("undo")} title="Отменить (Ctrl+Z)"
+                    className="px-2 py-1.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                    <Icon name="Undo2" size={13} />
+                  </button>
+                  <button onClick={() => execCmd("redo")} title="Повторить (Ctrl+Y)"
+                    className="px-2 py-1.5 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                    <Icon name="Redo2" size={13} />
+                  </button>
+                  <div className="w-px h-4 bg-border mx-1" />
+                  <button onClick={() => execCmd("bold")} title="Жирный (Ctrl+B)"
                     className="px-2.5 py-1.5 rounded font-bold text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                     style={{ fontFamily: '"Times New Roman", serif' }}>Ж</button>
-                  <button onClick={() => wrapSelection("_")} title="Курсив"
+                  <button onClick={() => execCmd("italic")} title="Курсив (Ctrl+I)"
                     className="px-2.5 py-1.5 rounded italic text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                     style={{ fontFamily: '"Times New Roman", serif' }}>К</button>
-                  <button onClick={() => wrapSelection("__")} title="Подчёркнутый"
+                  <button onClick={() => execCmd("underline")} title="Подчёркнутый (Ctrl+U)"
                     className="px-2.5 py-1.5 rounded underline text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                     style={{ fontFamily: '"Times New Roman", serif' }}>Ч</button>
                   <div className="w-px h-4 bg-border mx-1" />
-                  <button onClick={() => insertText("\n— ")} title="Диалог (тире)"
+                  <button onClick={() => execCmd("formatBlock", "h2")} title="Заголовок"
                     className="px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
-                    —
+                    Заголовок
                   </button>
-                  <button onClick={() => insertText("\n\n* * *\n\n")} title="Разделитель сцены"
+                  <button onClick={() => execCmd("formatBlock", "p")} title="Абзац"
                     className="px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
-                    * * *
+                    Абзац
                   </button>
                   <div className="w-px h-4 bg-border mx-1" />
+                  <button onClick={() => execCmd("insertHorizontalRule")} title="Разделитель"
+                    className="px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors font-lora">
+                    — — —
+                  </button>
                   <div className="ml-auto flex items-center gap-2">
                     <span className="font-lora text-[11px] text-muted-foreground">
-                      {activeCh.content.trim().split(/\s+/).filter(Boolean).length.toLocaleString("ru")} сл.
+                      {activeChWords.toLocaleString("ru")} сл.
                     </span>
-                    <button onClick={() => downloadText(activeCh.content, `${activeCh.title}.txt`)}
+                    <button onClick={() => {
+                      const d = document.createElement("div");
+                      d.innerHTML = activeCh.content;
+                      downloadText(d.textContent ?? "", `${activeCh.title}.txt`);
+                    }}
                       className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors">
                       <Icon name="Download" size={13} />
                       Скачать главу
@@ -295,36 +354,19 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
                   </div>
                 </div>
 
-                {/* Textarea */}
-                <textarea
-                  ref={textareaRef}
-                  value={activeCh.content}
-                  onChange={(e) => updateChContent(activeCh.id, e.target.value)}
+                {/* contentEditable editor */}
+                <div
+                  ref={editorRef}
+                  className="ms-editor flex-1 overflow-y-auto scroll-custom"
+                  contentEditable
+                  suppressContentEditableWarning
                   dir="ltr"
-                  spellCheck
-                  className="flex-1 resize-none focus:outline-none scroll-custom"
-                  style={{
-                    fontFamily: '"Times New Roman", Times, serif',
-                    fontSize: '14pt',
-                    lineHeight: '1.8',
-                    minHeight: '420px',
-                    background: 'transparent',
-                    padding: '2rem 3rem',
-                    direction: 'ltr',
-                  }}
-                  placeholder="Начните писать..."
-                  onKeyDown={(e) => {
-                    // Ctrl+B/I/U
-                    if (e.ctrlKey || e.metaKey) {
-                      if (e.key === "b") { e.preventDefault(); wrapSelection("**"); }
-                      if (e.key === "i") { e.preventDefault(); wrapSelection("_"); }
-                    }
-                  }}
+                  onInput={handleInput}
                 />
 
                 <div className="px-5 py-2 border-t border-border bg-muted/20 flex gap-4">
                   <span className="font-lora text-xs text-muted-foreground">{totalWords.toLocaleString("ru")} слов всего</span>
-                  <span className="font-lora text-xs text-muted-foreground">{totalChars.toLocaleString("ru")} знаков всего</span>
+                  <span className="font-lora text-xs text-muted-foreground">{totalChars.toLocaleString("ru")} знаков (с пробелами)</span>
                 </div>
               </div>
             )}
@@ -336,7 +378,7 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
         <div className="rounded-xl border border-border overflow-hidden bg-card">
           <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/20">
             <p className="font-lora text-xs text-muted-foreground/60 italic">
-              Собрано из всех глав. Рекомендуем сохранять в Google Docs или Word для дальнейшего оформления и редактуры.
+              Собрано из всех глав. Рекомендуем сохранять в Google Docs или Word.
             </p>
             <div className="flex items-center gap-3 ml-4 flex-shrink-0">
               <button onClick={() => copyText(fullText)}
@@ -364,14 +406,14 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
                   <h3 style={{ fontFamily: '"Times New Roman", serif', fontSize: '16pt', fontWeight: 'bold', marginBottom: '1em' }}>
                     {ch.title}
                   </h3>
-                  <p style={{ whiteSpace: 'pre-wrap' }}>{ch.content}</p>
+                  <div dangerouslySetInnerHTML={{ __html: ch.content }} />
                 </div>
               ))}
             </div>
           )}
           <div className="px-5 py-2 border-t border-border bg-muted/20 flex gap-4">
             <span className="font-lora text-xs text-muted-foreground">{totalWords.toLocaleString("ru")} слов</span>
-            <span className="font-lora text-xs text-muted-foreground">{totalChars.toLocaleString("ru")} знаков</span>
+            <span className="font-lora text-xs text-muted-foreground">{totalChars.toLocaleString("ru")} знаков (с пробелами)</span>
           </div>
         </div>
       )}
