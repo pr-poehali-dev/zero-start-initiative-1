@@ -28,6 +28,7 @@ export default function HomePage({ onNavigate }: Props) {
   const totalWords = realBooks.reduce((s, b) => s + b.words, 0);
   const totalChars = wordsToChars(totalWords);
   const recentBooks = realBooks.slice(0, 3);
+  const streak = realBooks.length > 0 ? DEMO_STREAK : 0;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10 pb-24 md:pb-10">
@@ -133,7 +134,7 @@ export default function HomePage({ onNavigate }: Props) {
         <div className="grid grid-cols-2 gap-3">
           {[
             { label: "Книг в работе", value: String(realBooks.length) },
-            { label: "Дней подряд",   value: String(DEMO_STREAK) },
+            { label: "Дней подряд",   value: String(streak) },
           ].map((stat) => (
             <button key={stat.label} onClick={() => onNavigate("stats")}
               className="text-center p-4 rounded-xl border border-border bg-card hover-lift transition-all">

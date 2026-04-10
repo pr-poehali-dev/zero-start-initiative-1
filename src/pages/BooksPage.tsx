@@ -73,8 +73,16 @@ export default function BooksPage() {
     if (selectedBookFull) setSelectedBookFull({ ...selectedBookFull, ...fields });
   };
 
+  const removeGoal = (id: number) => {
+    const updated = { ...bookGoals };
+    delete updated[id];
+    setBookGoals(updated);
+    saveGoalsToStorage(updated);
+  };
+
   const handleDelete = async (id: number) => {
     await deleteBook(id);
+    removeGoal(id);
     setSelectedBook(null);
     setSelectedBookFull(null);
     setConfirmDelete(null);
@@ -83,6 +91,7 @@ export default function BooksPage() {
   const handleDeleteFromList = async (id: number) => {
     setConfirmDelete(null);
     await deleteBook(id);
+    removeGoal(id);
   };
 
   if (selectedBook !== null) {
@@ -450,9 +459,9 @@ function BookDetail({
         <div className="animate-fade-in" key={tab}>
           {tab === "manuscript" && <ManuscriptTab key={book.id} bookId={book.id} initialText={book.manuscript ?? ""} onSave={(t) => onUpdate({ manuscript: t })} />}
           {tab === "synopsis" && <SynopsisTab initialText={book.synopsis ?? ""} onSave={(t) => onUpdate({ synopsis: t })} />}
-          {tab === "characters" && <CharactersTab />}
-          {tab === "plan" && <PlanTab />}
-          {tab === "lore" && <LoreTab />}
+          {tab === "characters" && <CharactersTab key={book.id} bookId={book.id} />}
+          {tab === "plan" && <PlanTab key={book.id} bookId={book.id} />}
+          {tab === "lore" && <LoreTab key={book.id} bookId={book.id} />}
         </div>
       )}
     </div>
@@ -544,6 +553,7 @@ function ManuscriptTab({ initialText, onSave, bookId }: { initialText: string; o
   const [activeChId, setActiveChId] = useState<number>(isEmpty ? -1 : initChapters[0].id);
   const [editingChTitle, setEditingChTitle] = useState<number | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
+  const [copied, setCopied] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const styleRef = useRef<HTMLStyleElement | null>(null);
 
@@ -617,6 +627,12 @@ function ManuscriptTab({ initialText, onSave, bookId }: { initialText: string; o
 
   const totalWords = chapters.reduce((s, c) => s + c.content.trim().split(/\s+/).filter(Boolean).length, 0);
   const totalChars = chapters.reduce((s, c) => s + c.content.replace(/\s/g, "").length, 0);
+
+  const copyText = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const downloadText = (text: string, filename: string) => {
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
@@ -784,11 +800,20 @@ function ManuscriptTab({ initialText, onSave, bookId }: { initialText: string; o
             <p className="font-lora text-xs text-muted-foreground/60 italic">
               Собрано из всех глав. Рекомендуем сохранять в Google Docs или Word для дальнейшего оформления и редактуры.
             </p>
-            <button onClick={() => downloadText(fullText, "рукопись.txt")}
-              className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap ml-4 flex-shrink-0">
-              <Icon name="Download" size={13} />
-              Скачать .txt
-            </button>
+            <div className="flex items-center gap-3 ml-4 flex-shrink-0">
+              <button onClick={() => copyText(fullText)}
+                className="flex items-center gap-1.5 font-lora text-xs transition-colors whitespace-nowrap"
+                style={{ color: copied ? 'hsl(var(--violet))' : undefined }}
+                >
+                <Icon name={copied ? "Check" : "Copy"} size={13} />
+                {copied ? "Скопировано" : "Копировать"}
+              </button>
+              <button onClick={() => downloadText(fullText, "рукопись.txt")}
+                className="flex items-center gap-1.5 font-lora text-xs text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap">
+                <Icon name="Download" size={13} />
+                Скачать .txt
+              </button>
+            </div>
           </div>
           {chapters.length === 0 ? (
             <div className="px-12 py-16 text-center">
@@ -987,8 +1012,20 @@ const DEFAULT_CHARS: Character[] = [
   },
 ];
 
-function CharactersTab() {
-  const [characters, setCharacters] = useState<Character[]>(DEFAULT_CHARS);
+function CharactersTab({ bookId }: { bookId: number }) {
+  const storageKey = `scriptorium_chars_${bookId}`;
+  const loadChars = (): Character[] => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) return JSON.parse(raw);
+    } catch (_e) { /* ignore */ }
+    return [];
+  };
+  const saveChars = (chars: Character[]) => {
+    localStorage.setItem(storageKey, JSON.stringify(chars));
+  };
+
+  const [characters, setCharacters] = useState<Character[]>(loadChars);
   const [view, setView] = useState<"list" | "card" | "questionnaire">("list");
   const [selected, setSelected] = useState<Character | null>(null);
   const [editing, setEditing] = useState(false);
@@ -1006,7 +1043,9 @@ function CharactersTab() {
 
   const saveEdits = () => {
     if (!draft) return;
-    setCharacters((prev) => prev.map((c) => (c.id === draft.id ? draft : c)));
+    const updated = characters.map((c) => (c.id === draft.id ? draft : c));
+    setCharacters(updated);
+    saveChars(updated);
     setSelected(draft);
     setEditing(false);
   };
@@ -1021,7 +1060,9 @@ function CharactersTab() {
       freeText: "",
       questionnaire: {},
     };
-    setCharacters((prev) => [...prev, nc]);
+    const updated = [...characters, nc];
+    setCharacters(updated);
+    saveChars(updated);
     setShowNew(false);
     setNewName("");
     openCard(nc, "card");
@@ -1029,7 +1070,9 @@ function CharactersTab() {
   };
 
   const deleteCharacter = (id: number) => {
-    setCharacters((prev) => prev.filter((c) => c.id !== id));
+    const updated = characters.filter((c) => c.id !== id);
+    setCharacters(updated);
+    saveChars(updated);
     setView("list");
     setSelected(null);
   };
@@ -1427,8 +1470,23 @@ const PLAN_SECTIONS_DEFAULT: PlanSection[] = [
   ]},
 ];
 
-function PlanTab() {
-  const [sections, setSections] = useState<PlanSection[]>(PLAN_SECTIONS_DEFAULT);
+function PlanTab({ bookId }: { bookId: number }) {
+  const storageKey = `scriptorium_plan_${bookId}`;
+  const loadSections = (): PlanSection[] => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) return JSON.parse(raw);
+    } catch (_e) { /* ignore */ }
+    return [];
+  };
+  const saveSections = (secs: PlanSection[]) => {
+    localStorage.setItem(storageKey, JSON.stringify(secs));
+  };
+
+  const [sections, setSections] = useState<PlanSection[]>(() => {
+    const saved = loadSections();
+    return saved.length > 0 ? saved : PLAN_SECTIONS_DEFAULT.map((s) => ({ ...s, episodes: [] }));
+  });
   const [editingEp, setEditingEp] = useState<{ sectionId: string; ep: PlanEpisode } | null>(null);
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
@@ -1437,8 +1495,13 @@ function PlanTab() {
   const totalEps = sections.reduce((s, sec) => s + sec.episodes.length, 0);
   const doneEps  = sections.reduce((s, sec) => s + sec.episodes.filter((e) => e.done).length, 0);
 
+  const updateSections = (updated: PlanSection[]) => {
+    setSections(updated);
+    saveSections(updated);
+  };
+
   const toggleDone = (sectionId: string, epId: number) => {
-    setSections(sections.map((sec) =>
+    updateSections(sections.map((sec) =>
       sec.id !== sectionId ? sec : {
         ...sec,
         episodes: sec.episodes.map((e) => e.id === epId ? { ...e, done: !e.done } : e),
@@ -1449,7 +1512,7 @@ function PlanTab() {
   const addEpisode = (sectionId: string) => {
     if (!newTitle.trim()) return;
     const ep: PlanEpisode = { id: Date.now(), title: newTitle.trim(), description: newDesc.trim(), done: false };
-    setSections(sections.map((sec) =>
+    updateSections(sections.map((sec) =>
       sec.id !== sectionId ? sec : { ...sec, episodes: [...sec.episodes, ep] }
     ));
     setAddingTo(null);
@@ -1459,33 +1522,34 @@ function PlanTab() {
   const saveEdit = () => {
     if (!editingEp) return;
     const { sectionId, newSectionId, ep } = editingEp as typeof editingEp & { newSectionId: string };
+    let updated: PlanSection[];
     if (newSectionId && newSectionId !== sectionId) {
-      // move to different section
-      setSections(sections.map((sec) => {
+      updated = sections.map((sec) => {
         if (sec.id === sectionId) return { ...sec, episodes: sec.episodes.filter((e) => e.id !== ep.id) };
         if (sec.id === newSectionId) return { ...sec, episodes: [...sec.episodes, ep] };
         return sec;
-      }));
+      });
     } else {
-      setSections(sections.map((sec) =>
+      updated = sections.map((sec) =>
         sec.id !== sectionId ? sec : {
           ...sec,
           episodes: sec.episodes.map((e) => e.id === ep.id ? ep : e),
         }
-      ));
+      );
     }
+    updateSections(updated);
     setEditingEp(null);
   };
 
   const deleteEp = (sectionId: string, epId: number) => {
-    setSections(sections.map((sec) =>
+    updateSections(sections.map((sec) =>
       sec.id !== sectionId ? sec : { ...sec, episodes: sec.episodes.filter((e) => e.id !== epId) }
     ));
     setEditingEp(null);
   };
 
   const moveEp = (sectionId: string, epId: number, dir: -1 | 1) => {
-    setSections(sections.map((sec) => {
+    updateSections(sections.map((sec) => {
       if (sec.id !== sectionId) return sec;
       const eps = [...sec.episodes];
       const idx = eps.findIndex((e) => e.id === epId);
@@ -1724,9 +1788,21 @@ const DEFAULT_NOTES: LoreNote[] = [
   },
 ];
 
-function LoreTab() {
-  const [tags, setTags] = useState<LoreTag[]>(DEFAULT_TAGS);
-  const [notes, setNotes] = useState<LoreNote[]>(DEFAULT_NOTES);
+function LoreTab({ bookId }: { bookId: number }) {
+  const tagsKey = `scriptorium_lore_tags_${bookId}`;
+  const notesKey = `scriptorium_lore_notes_${bookId}`;
+
+  const loadTags = (): LoreTag[] => {
+    try { const r = localStorage.getItem(tagsKey); if (r) return JSON.parse(r); } catch (_e) { /* ignore */ }
+    return [];
+  };
+  const loadNotes = (): LoreNote[] => {
+    try { const r = localStorage.getItem(notesKey); if (r) return JSON.parse(r); } catch (_e) { /* ignore */ }
+    return [];
+  };
+
+  const [tags, setTags] = useState<LoreTag[]>(() => { const s = loadTags(); return s.length > 0 ? s : []; });
+  const [notes, setNotes] = useState<LoreNote[]>(() => { const s = loadNotes(); return s.length > 0 ? s : []; });
   const [activeTag, setActiveTag] = useState<number | null>(null);
   const [openNote, setOpenNote] = useState<LoreNote | null>(null);
   const [editingNote, setEditingNote] = useState(false);
@@ -1744,21 +1820,30 @@ function LoreTab() {
   const filtered = activeTag ? notes.filter((n) => n.tagIds.includes(activeTag)) : notes;
   const tagById = (id: number) => tags.find((t) => t.id === id);
 
+  const updateTags = (updated: LoreTag[]) => {
+    setTags(updated);
+    localStorage.setItem(tagsKey, JSON.stringify(updated));
+  };
+  const updateNotes = (updated: LoreNote[]) => {
+    setNotes(updated);
+    localStorage.setItem(notesKey, JSON.stringify(updated));
+  };
+
   const addTag = () => {
     if (!newTagLabel.trim()) return;
     const color = TAG_PALETTE[tags.length % TAG_PALETTE.length];
-    setTags([...tags, { id: Date.now(), label: newTagLabel.trim(), color }]);
+    updateTags([...tags, { id: Date.now(), label: newTagLabel.trim(), color }]);
     setNewTagLabel("");
   };
 
   const saveTagEdit = (id: number) => {
     if (!editingTagLabel.trim()) return;
-    setTags(tags.map((t) => t.id === id ? { ...t, label: editingTagLabel.trim() } : t));
+    updateTags(tags.map((t) => t.id === id ? { ...t, label: editingTagLabel.trim() } : t));
     setEditingTagId(null);
   };
 
   const deleteTag = (id: number) => {
-    setTags(tags.filter((t) => t.id !== id));
+    updateTags(tags.filter((t) => t.id !== id));
     if (activeTag === id) setActiveTag(null);
   };
 
@@ -1773,7 +1858,7 @@ function LoreTab() {
   const createNote = () => {
     if (!newNoteTitle.trim()) return;
     const n: LoreNote = { id: Date.now(), title: newNoteTitle.trim(), tagIds: newNoteTags, text: "" };
-    setNotes([...notes, n]);
+    updateNotes([...notes, n]);
     setShowNewNote(false);
     setNewNoteTitle(""); setNewNoteTags([]);
     openNoteDetail(n, true);
@@ -1787,13 +1872,14 @@ function LoreTab() {
 
   const saveNote = () => {
     if (!noteDraft) return;
-    setNotes(notes.map((n) => n.id === noteDraft.id ? noteDraft : n));
+    const updated = notes.map((n) => n.id === noteDraft.id ? noteDraft : n);
+    updateNotes(updated);
     setOpenNote(noteDraft);
     setEditingNote(false);
   };
 
   const deleteNote = (id: number) => {
-    setNotes(notes.filter((n) => n.id !== id));
+    updateNotes(notes.filter((n) => n.id !== id));
     setOpenNote(null);
   };
 
