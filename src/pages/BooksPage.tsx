@@ -578,7 +578,13 @@ function ManuscriptTab({ initialText, onSave, bookId }: { initialText: string; o
   };
 
   const addChapter = () => {
-    const newCh: ManuscriptChapter = { id: Date.now(), title: `Глава ${chapters.length + 1}`, content: "" };
+    // Считаем только главы с числовым номером (Глава N), не пролог/эпилог
+    const chapterNums = chapters
+      .map((c) => c.title.match(/^Глава\s+(\d+)/i))
+      .filter(Boolean)
+      .map((m) => parseInt(m![1]));
+    const nextNum = chapterNums.length > 0 ? Math.max(...chapterNums) + 1 : 1;
+    const newCh: ManuscriptChapter = { id: Date.now(), title: `Глава ${nextNum}`, content: "" };
     const updated = [...chapters, newCh];
     setChapters(updated);
     setActiveChId(newCh.id);
@@ -1177,8 +1183,8 @@ function CharactersTab() {
               })}
             </div>
           ) : (
-            <span className="font-lora text-xs px-2 py-0.5 rounded-full mt-1 inline-block"
-              style={{ background: `${color}22`, color }}>
+            <span className="font-lora text-xs px-2.5 py-0.5 rounded-full mt-1 inline-block border"
+              style={{ background: `${color}12`, color, borderColor: `${color}55` }}>
               {selected.role}
             </span>
           )}
@@ -1838,8 +1844,8 @@ function LoreTab() {
                     openNote.tagIds.map((tid) => {
                       const t = tagById(tid);
                       return t ? (
-                        <span key={tid} className="font-lora text-xs px-2.5 py-1 rounded-full"
-                          style={{ background: `${t.color}20`, color: t.color }}>
+                        <span key={tid} className="font-lora text-xs px-2.5 py-1 rounded-full border"
+                          style={{ background: `${t.color}12`, color: t.color, borderColor: `${t.color}55` }}>
                           {t.label}
                         </span>
                       ) : null;
