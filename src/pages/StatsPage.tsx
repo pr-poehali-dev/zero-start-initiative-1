@@ -41,13 +41,11 @@ function recordTodayChars(totalChars: number): Record<string, number> {
   const history = loadHistory();
   const key = todayKey();
 
-  if (diff > 0) {
-    history[key] = (history[key] || 0) + diff;
-    saveHistory(history);
+  if (prev === 0 && totalChars > 0) {
+    // Первый запуск — только запоминаем базу, ничего не пишем в историю
     localStorage.setItem(PREV_CHARS_KEY, String(totalChars));
-  } else if (prev === 0 && totalChars > 0) {
-    // Первый запуск — записываем всё сегодняшним днём
-    history[key] = (history[key] || 0) + totalChars;
+  } else if (diff > 0) {
+    history[key] = (history[key] || 0) + diff;
     saveHistory(history);
     localStorage.setItem(PREV_CHARS_KEY, String(totalChars));
   }
@@ -75,6 +73,17 @@ export default function StatsPage() {
 
   useEffect(() => {
     if (totalChars > 0) {
+      // Чистим ошибочную запись первого запуска: если история за сегодня == totalChars и prev тоже == totalChars
+      const MIGRATION_KEY = "scriptorium_history_cleaned_v2";
+      if (!localStorage.getItem(MIGRATION_KEY)) {
+        const h = loadHistory();
+        const key = todayKey();
+        if (h[key] && h[key] >= totalChars * 0.95) {
+          delete h[key];
+          saveHistory(h);
+        }
+        localStorage.setItem(MIGRATION_KEY, "1");
+      }
       const h = recordTodayChars(totalChars);
       setHistory(h);
     } else {
