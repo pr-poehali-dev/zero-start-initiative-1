@@ -670,34 +670,362 @@ function PlanTab() {
   );
 }
 
-function LoreTab() {
-  const notes = [
-    { title: "Башня Архива", tag: "Места", text: "Семиэтажная башня в центре Старого города. На верхнем этаже хранятся запрещённые карты..." },
-    { title: "Система магии", tag: "Магия", text: "Картографическая магия позволяет видеть скрытые пути между мирами..." },
-  ];
+// ──────────────────────────────────────────────
+// LORE TAB
+// ──────────────────────────────────────────────
 
-  return (
-    <div className="space-y-4">
-      <div className="grid md:grid-cols-2 gap-4">
-        {notes.map((note) => (
-          <div key={note.title} className="p-5 rounded-xl border border-border bg-card hover-lift transition-all">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="font-lora text-xs px-2 py-0.5 rounded-full"
-                style={{ background: 'hsl(var(--violet-light))', color: 'hsl(var(--violet))' }}>
-                {note.tag}
-              </span>
-            </div>
-            <h3 className="font-cormorant text-lg font-medium mb-1">{note.title}</h3>
-            <p className="font-lora text-sm text-muted-foreground">{note.text}</p>
+interface LoreTag {
+  id: number;
+  label: string;
+  color: string;
+}
+
+interface LoreNote {
+  id: number;
+  title: string;
+  tagId: number;
+  text: string;
+}
+
+const TAG_PALETTE = [
+  "hsl(267 45% 42%)",
+  "hsl(210 55% 42%)",
+  "hsl(150 45% 36%)",
+  "hsl(30 60% 42%)",
+  "hsl(0 50% 44%)",
+  "hsl(190 50% 38%)",
+  "hsl(330 45% 42%)",
+];
+
+const DEFAULT_TAGS: LoreTag[] = [
+  { id: 1, label: "Места",  color: TAG_PALETTE[1] },
+  { id: 2, label: "Магия",  color: TAG_PALETTE[0] },
+  { id: 3, label: "История", color: TAG_PALETTE[3] },
+];
+
+const DEFAULT_NOTES: LoreNote[] = [
+  { id: 1, title: "Башня Архива",  tagId: 1, text: "Семиэтажная башня в центре Старого города. На верхнем этаже хранятся запрещённые карты. Вход — только для архивариусов с третьим уровнем допуска." },
+  { id: 2, title: "Система магии", tagId: 2, text: "Картографическая магия позволяет видеть скрытые пути между мирами. Появляется у одного из тысячи людей, обычно в подростковом возрасте." },
+];
+
+function LoreTab() {
+  const [tags, setTags] = useState<LoreTag[]>(DEFAULT_TAGS);
+  const [notes, setNotes] = useState<LoreNote[]>(DEFAULT_NOTES);
+  const [activeTag, setActiveTag] = useState<number | null>(null);
+  const [openNote, setOpenNote] = useState<LoreNote | null>(null);
+  const [editingNote, setEditingNote] = useState(false);
+  const [noteDraft, setNoteDraft] = useState<LoreNote | null>(null);
+
+  // tag management
+  const [showTagManager, setShowTagManager] = useState(false);
+  const [newTagLabel, setNewTagLabel] = useState("");
+  const [editingTagId, setEditingTagId] = useState<number | null>(null);
+  const [editingTagLabel, setEditingTagLabel] = useState("");
+
+  // new note
+  const [showNewNote, setShowNewNote] = useState(false);
+  const [newNoteTitle, setNewNoteTitle] = useState("");
+  const [newNoteTag, setNewNoteTag] = useState<number>(tags[0]?.id ?? 1);
+
+  const filtered = activeTag ? notes.filter((n) => n.tagId === activeTag) : notes;
+
+  const tagById = (id: number) => tags.find((t) => t.id === id);
+
+  const addTag = () => {
+    if (!newTagLabel.trim()) return;
+    const color = TAG_PALETTE[tags.length % TAG_PALETTE.length];
+    setTags([...tags, { id: Date.now(), label: newTagLabel.trim(), color }]);
+    setNewTagLabel("");
+  };
+
+  const saveTagEdit = (id: number) => {
+    if (!editingTagLabel.trim()) return;
+    setTags(tags.map((t) => t.id === id ? { ...t, label: editingTagLabel.trim() } : t));
+    setEditingTagId(null);
+  };
+
+  const deleteTag = (id: number) => {
+    setTags(tags.filter((t) => t.id !== id));
+    if (activeTag === id) setActiveTag(null);
+  };
+
+  const createNote = () => {
+    if (!newNoteTitle.trim()) return;
+    const n: LoreNote = { id: Date.now(), title: newNoteTitle.trim(), tagId: newNoteTag, text: "" };
+    setNotes([...notes, n]);
+    setShowNewNote(false);
+    setNewNoteTitle("");
+    openNoteDetail(n, true);
+  };
+
+  const openNoteDetail = (n: LoreNote, startEditing = false) => {
+    setOpenNote(n);
+    setNoteDraft({ ...n });
+    setEditingNote(startEditing);
+  };
+
+  const saveNote = () => {
+    if (!noteDraft) return;
+    setNotes(notes.map((n) => n.id === noteDraft.id ? noteDraft : n));
+    setOpenNote(noteDraft);
+    setEditingNote(false);
+  };
+
+  const deleteNote = (id: number) => {
+    setNotes(notes.filter((n) => n.id !== id));
+    setOpenNote(null);
+  };
+
+  // ── NOTE DETAIL ──
+  if (openNote && noteDraft) {
+    const tag = tagById(openNote.tagId);
+    return (
+      <div className="animate-fade-in">
+        <button onClick={() => setOpenNote(null)}
+          className="flex items-center gap-1.5 font-lora text-sm text-muted-foreground hover:text-foreground transition-colors mb-6">
+          <Icon name="ArrowLeft" size={15} />
+          Все заметки
+        </button>
+
+        <div className="flex items-start justify-between gap-3 mb-5">
+          <div className="flex-1">
+            {editingNote ? (
+              <input value={noteDraft.title}
+                onChange={(e) => setNoteDraft({ ...noteDraft, title: e.target.value })}
+                className="font-cormorant text-3xl font-light bg-transparent border-b border-border focus:outline-none focus:border-violet w-full pb-1"
+              />
+            ) : (
+              <h2 className="font-cormorant text-3xl font-light">{openNote.title}</h2>
+            )}
+            {tag && (
+              <div className="mt-2">
+                {editingNote ? (
+                  <select value={noteDraft.tagId}
+                    onChange={(e) => setNoteDraft({ ...noteDraft, tagId: Number(e.target.value) })}
+                    className="font-lora text-xs bg-transparent border border-border rounded-full px-3 py-1 focus:outline-none">
+                    {tags.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                  </select>
+                ) : (
+                  <span className="font-lora text-xs px-3 py-1 rounded-full"
+                    style={{ background: `${tag.color}22`, color: tag.color }}>
+                    {tag.label}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
+          <div className="flex gap-2 flex-shrink-0">
+            {!editingNote ? (
+              <button onClick={() => setEditingNote(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border font-lora text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="Pencil" size={13} />
+                Изменить
+              </button>
+            ) : (
+              <button onClick={saveNote}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg font-lora text-xs text-white transition-colors"
+                style={{ background: 'hsl(var(--violet))' }}>
+                <Icon name="Check" size={13} />
+                Сохранить
+              </button>
+            )}
+            <button onClick={() => deleteNote(openNote.id)}
+              className="p-2 rounded-lg border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 transition-colors">
+              <Icon name="Trash2" size={13} />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 rounded-xl border border-border bg-card min-h-48">
+          {editingNote ? (
+            <textarea value={noteDraft.text}
+              onChange={(e) => setNoteDraft({ ...noteDraft, text: e.target.value })}
+              rows={12}
+              className="w-full bg-transparent font-lora text-sm leading-7 resize-none focus:outline-none scroll-custom"
+              placeholder="Текст заметки..." />
+          ) : (
+            <p className="font-lora text-sm leading-7 whitespace-pre-wrap text-foreground">
+              {openNote.text || <span className="text-muted-foreground italic">Заметка пуста</span>}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── LIST VIEW ──
+  return (
+    <div className="space-y-5 animate-fade-in">
+      {/* Tags row */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => setActiveTag(null)}
+          className={`font-lora text-xs px-3 py-1.5 rounded-full border transition-all ${
+            activeTag === null
+              ? "border-transparent text-white"
+              : "border-border text-muted-foreground hover:text-foreground"
+          }`}
+          style={activeTag === null ? { background: 'hsl(var(--violet))' } : {}}>
+          Все
+        </button>
+        {tags.map((t) => (
+          <button key={t.id}
+            onClick={() => setActiveTag(activeTag === t.id ? null : t.id)}
+            className="font-lora text-xs px-3 py-1.5 rounded-full border transition-all"
+            style={activeTag === t.id
+              ? { background: t.color, color: "#fff", borderColor: t.color }
+              : { background: `${t.color}18`, color: t.color, borderColor: `${t.color}44` }
+            }>
+            {t.label}
+          </button>
         ))}
-        <button className="p-5 rounded-xl border-2 border-dashed border-border hover:border-violet transition-colors group flex flex-col items-center justify-center gap-2 min-h-24">
+        <button onClick={() => setShowTagManager(true)}
+          className="font-lora text-xs px-3 py-1.5 rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-violet/50 transition-all flex items-center gap-1">
+          <Icon name="Tag" size={11} />
+          Ярлыки
+        </button>
+      </div>
+
+      {/* Notes grid */}
+      <div className="grid md:grid-cols-2 gap-4">
+        {filtered.map((note) => {
+          const tag = tagById(note.tagId);
+          return (
+            <button key={note.id}
+              onClick={() => openNoteDetail(note)}
+              className="text-left group p-5 rounded-xl border border-border bg-card hover-lift transition-all">
+              {tag && (
+                <span className="font-lora text-xs px-2 py-0.5 rounded-full mb-2 inline-block"
+                  style={{ background: `${tag.color}22`, color: tag.color }}>
+                  {tag.label}
+                </span>
+              )}
+              <h3 className="font-cormorant text-lg font-medium mb-1 group-hover:text-violet transition-colors">
+                {note.title}
+              </h3>
+              <p className="font-lora text-sm text-muted-foreground line-clamp-2">{note.text}</p>
+            </button>
+          );
+        })}
+
+        <button onClick={() => setShowNewNote(true)}
+          className="p-5 rounded-xl border-2 border-dashed border-border hover:border-violet transition-colors group flex flex-col items-center justify-center gap-2 min-h-24">
           <Icon name="FilePlus" size={20} className="text-muted-foreground group-hover:text-violet transition-colors" />
           <span className="font-lora text-sm text-muted-foreground group-hover:text-violet transition-colors">
             Новая заметка
           </span>
         </button>
       </div>
+
+      {/* ── TAG MANAGER MODAL ── */}
+      {showTagManager && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl border border-border p-7 w-full max-w-sm animate-slide-up">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="font-cormorant text-2xl">Ярлыки</h2>
+              <button onClick={() => setShowTagManager(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="X" size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-2 mb-5 max-h-56 overflow-y-auto scroll-custom">
+              {tags.map((t) => (
+                <div key={t.id} className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: t.color }} />
+                  {editingTagId === t.id ? (
+                    <>
+                      <input value={editingTagLabel}
+                        onChange={(e) => setEditingTagLabel(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && saveTagEdit(t.id)}
+                        className="flex-1 border border-border rounded-md px-2 py-1 font-lora text-sm bg-background focus:outline-none"
+                        autoFocus />
+                      <button onClick={() => saveTagEdit(t.id)}
+                        className="text-violet hover:opacity-70 transition-opacity">
+                        <Icon name="Check" size={14} />
+                      </button>
+                      <button onClick={() => setEditingTagId(null)}
+                        className="text-muted-foreground hover:text-foreground transition-colors">
+                        <Icon name="X" size={14} />
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="flex-1 font-lora text-sm">{t.label}</span>
+                      <button onClick={() => { setEditingTagId(t.id); setEditingTagLabel(t.label); }}
+                        className="text-muted-foreground hover:text-foreground transition-colors p-1">
+                        <Icon name="Pencil" size={13} />
+                      </button>
+                      <button onClick={() => deleteTag(t.id)}
+                        className="text-muted-foreground hover:text-destructive transition-colors p-1">
+                        <Icon name="Trash2" size={13} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Add new tag */}
+            <div className="flex gap-2">
+              <input value={newTagLabel}
+                onChange={(e) => setNewTagLabel(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addTag()}
+                className="flex-1 border border-border rounded-lg px-3 py-2 font-lora text-sm bg-background focus:outline-none"
+                placeholder="Новый ярлык..." />
+              <button onClick={addTag}
+                className="px-4 py-2 rounded-lg font-lora text-sm text-white transition-all"
+                style={{ background: 'hsl(var(--violet))' }}>
+                <Icon name="Plus" size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── NEW NOTE MODAL ── */}
+      {showNewNote && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl border border-border p-7 w-full max-w-sm animate-slide-up">
+            <h2 className="font-cormorant text-2xl mb-5">Новая заметка</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="font-lora text-sm text-muted-foreground block mb-1.5">Название</label>
+                <input value={newNoteTitle} onChange={(e) => setNewNoteTitle(e.target.value)}
+                  className="w-full border border-border rounded-lg px-3 py-2.5 font-lora text-sm bg-background focus:outline-none"
+                  placeholder="Название заметки..." autoFocus />
+              </div>
+              <div>
+                <label className="font-lora text-sm text-muted-foreground block mb-1.5">Ярлык</label>
+                <div className="flex gap-2 flex-wrap">
+                  {tags.map((t) => (
+                    <button key={t.id}
+                      onClick={() => setNewNoteTag(t.id)}
+                      className="font-lora text-xs px-3 py-1.5 rounded-full border transition-all"
+                      style={newNoteTag === t.id
+                        ? { background: t.color, color: "#fff", borderColor: t.color }
+                        : { background: `${t.color}18`, color: t.color, borderColor: `${t.color}44` }
+                      }>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowNewNote(false)}
+                className="flex-1 py-2.5 rounded-lg border border-border font-lora text-sm text-muted-foreground hover:bg-muted transition-colors">
+                Отмена
+              </button>
+              <button onClick={createNote}
+                className="flex-1 py-2.5 rounded-lg font-lora text-sm text-white transition-all"
+                style={{ background: 'hsl(var(--violet))' }}>
+                Создать
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
