@@ -22,6 +22,14 @@ interface BookData {
 }
 
 const wordsToChars = (w: number) => Math.round(w * 5.5);
+const GOALS_KEY = "scriptorium_book_goals";
+
+function loadGoals(): Record<number, number> {
+  try { return JSON.parse(localStorage.getItem(GOALS_KEY) || "{}"); } catch { return {}; }
+}
+function saveGoalsToStorage(g: Record<number, number>) {
+  localStorage.setItem(GOALS_KEY, JSON.stringify(g));
+}
 
 export default function BooksPage() {
   const { books, loading, createBook: apiCreate, updateBook, deleteBook, getBook } = useBooks();
@@ -33,9 +41,15 @@ export default function BooksPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newGenre, setNewGenre] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
-  const [bookGoals, setBookGoals] = useState<Record<number, number>>({});
+  const [bookGoals, setBookGoals] = useState<Record<number, number>>(loadGoals);
   const [editingGoal, setEditingGoal] = useState<number | null>(null);
   const [goalDraft, setGoalDraft] = useState("");
+
+  const setGoal = (bookId: number, chars: number) => {
+    const updated = { ...bookGoals, [bookId]: chars };
+    setBookGoals(updated);
+    saveGoalsToStorage(updated);
+  };
 
   const openBook = async (id: number) => {
     setLoadingBook(true);
@@ -83,6 +97,8 @@ export default function BooksPage() {
         onUpdate={(fields) => handleUpdate(fields)}
         onDelete={() => handleDelete(selectedBook)}
         loading={loadingBook}
+        goalChars={bookGoals[book.id]}
+        onSetGoal={(chars) => setGoal(book.id, chars)}
       />
     );
   }
@@ -140,7 +156,7 @@ export default function BooksPage() {
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") {
                                     const v = parseInt(goalDraft.replace(/\D/g, ""));
-                                    if (v > 0) setBookGoals({ ...bookGoals, [book.id]: v });
+                                    if (v > 0) setGoal(book.id, v);
                                     setEditingGoal(null);
                                   }
                                   if (e.key === "Escape") setEditingGoal(null);
@@ -148,7 +164,7 @@ export default function BooksPage() {
                                 onClick={(e) => e.stopPropagation()}
                                 className="w-20 border border-border rounded px-1 py-0.5 font-lora text-[11px] bg-background focus:outline-none"
                                 placeholder="знаков..." autoFocus />
-                              <button onClick={(e) => { e.stopPropagation(); const v = parseInt(goalDraft.replace(/\D/g, "")); if (v > 0) setBookGoals({ ...bookGoals, [book.id]: v }); setEditingGoal(null); }}
+                              <button onClick={(e) => { e.stopPropagation(); const v = parseInt(goalDraft.replace(/\D/g, "")); if (v > 0) setGoal(book.id, v); setEditingGoal(null); }}
                                 className="text-violet hover:opacity-70">✓</button>
                             </span>
                           ) : (
@@ -165,7 +181,7 @@ export default function BooksPage() {
                       </div>
                     ) : (
                       <button
-                        onClick={(e) => { e.stopPropagation(); setBookGoals({ ...bookGoals, [book.id]: 50000 }); setEditingGoal(book.id); setGoalDraft("50000"); }}
+                        onClick={(e) => { e.stopPropagation(); setGoal(book.id, 50000); setEditingGoal(book.id); setGoalDraft("50000"); }}
                         className="font-lora text-xs text-muted-foreground/60 hover:text-violet transition-colors">
                         + Поставить цель
                       </button>
@@ -280,14 +296,27 @@ function BookDetail({
   onUpdate: (fields: Partial<{ title: string; genre: string; manuscript: string; synopsis: string }>) => void;
   onDelete: () => void;
   loading?: boolean;
+  goalChars?: number;
+  onSetGoal: (chars: number) => void;
 }) {
   const [editingMeta, setEditingMeta] = useState(false);
   const [titleDraft, setTitleDraft] = useState(book.title);
   const [genreDraft, setGenreDraft] = useState(book.genre);
+  const [editingGoal, setEditingGoal] = useState(false);
+  const [goalDraft, setGoalDraft] = useState("");
+
+  const chars = wordsToChars(book.words);
+  const pct = goalChars ? Math.min(100, Math.round((chars / goalChars) * 100)) : null;
 
   const saveMeta = () => {
     if (titleDraft.trim()) onUpdate({ title: titleDraft.trim(), genre: genreDraft.trim() });
     setEditingMeta(false);
+  };
+
+  const saveGoal = () => {
+    const v = parseInt(goalDraft.replace(/\D/g, ""));
+    if (v > 0) onSetGoal(v);
+    setEditingGoal(false);
   };
 
   return (
@@ -326,15 +355,66 @@ function BookDetail({
             </div>
           </div>
         ) : (
-          <div className="flex-1 group flex items-start gap-3">
-            <div>
-              <h1 className="font-cormorant text-4xl font-light leading-tight">{book.title}</h1>
-              <p className="font-lora text-sm text-muted-foreground mt-1">{book.genre || "Жанр не указан"} · {book.words.toLocaleString("ru")} слов</p>
+          <div className="flex-1 group">
+            <div className="flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <h1 className="font-cormorant text-4xl font-light leading-tight">{book.title}</h1>
+                <p className="font-lora text-sm text-muted-foreground mt-1">{book.genre || "Жанр не указан"}</p>
+              </div>
+              <button onClick={() => { setTitleDraft(book.title); setGenreDraft(book.genre); setEditingMeta(true); }}
+                className="mt-1.5 p-1.5 rounded-lg text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted transition-all flex-shrink-0">
+                <Icon name="Pencil" size={14} />
+              </button>
             </div>
-            <button onClick={() => { setTitleDraft(book.title); setGenreDraft(book.genre); setEditingMeta(true); }}
-              className="mt-1.5 p-1.5 rounded-lg text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted transition-all">
-              <Icon name="Pencil" size={14} />
-            </button>
+
+            {/* Volume + goal */}
+            <div className="mt-4 p-4 rounded-xl border border-border bg-muted/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="font-lora text-xs text-muted-foreground">Текущий объём</p>
+                  <p className="font-lora text-sm font-medium">
+                    {book.words.toLocaleString("ru")} слов
+                    <span className="text-muted-foreground font-normal ml-2">· {chars.toLocaleString("ru")} знаков</span>
+                  </p>
+                </div>
+                <div className="text-right space-y-0.5">
+                  <p className="font-lora text-xs text-muted-foreground">Цель</p>
+                  {editingGoal ? (
+                    <div className="flex items-center gap-1.5">
+                      <input value={goalDraft} onChange={(e) => setGoalDraft(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveGoal(); if (e.key === "Escape") setEditingGoal(false); }}
+                        className="w-24 border border-border rounded px-2 py-0.5 font-lora text-xs bg-background focus:outline-none"
+                        placeholder="знаков..." autoFocus />
+                      <button onClick={saveGoal} className="text-violet hover:opacity-70 font-lora text-xs">✓</button>
+                      <button onClick={() => setEditingGoal(false)} className="text-muted-foreground hover:text-foreground font-lora text-xs">✕</button>
+                    </div>
+                  ) : goalChars ? (
+                    <button onClick={() => { setGoalDraft(String(goalChars)); setEditingGoal(true); }}
+                      className="font-lora text-sm hover:text-violet transition-colors">
+                      {goalChars.toLocaleString("ru")} зн. ✎
+                    </button>
+                  ) : (
+                    <button onClick={() => { setGoalDraft("50000"); setEditingGoal(true); }}
+                      className="font-lora text-xs text-violet hover:opacity-80 transition-opacity">
+                      + Поставить цель
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {pct !== null && (
+                <div>
+                  <div className="flex justify-between font-lora text-[11px] text-muted-foreground mb-1">
+                    <span>{pct}% выполнено</span>
+                    <span>{chars.toLocaleString("ru")} / {goalChars!.toLocaleString("ru")} зн.</span>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all"
+                      style={{ width: `${pct}%`, background: 'hsl(var(--violet))' }} />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -498,7 +578,13 @@ function ManuscriptTab({ initialText, onSave, bookId }: { initialText: string; o
   };
 
   const addChapter = () => {
-    const newCh: ManuscriptChapter = { id: Date.now(), title: `Глава ${chapters.length + 1}`, content: "" };
+    // Считаем только главы с числовым номером (Глава N), не пролог/эпилог
+    const chapterNums = chapters
+      .map((c) => c.title.match(/^Глава\s+(\d+)/i))
+      .filter(Boolean)
+      .map((m) => parseInt(m![1]));
+    const nextNum = chapterNums.length > 0 ? Math.max(...chapterNums) + 1 : 1;
+    const newCh: ManuscriptChapter = { id: Date.now(), title: `Глава ${nextNum}`, content: "" };
     const updated = [...chapters, newCh];
     setChapters(updated);
     setActiveChId(newCh.id);
@@ -1097,8 +1183,8 @@ function CharactersTab() {
               })}
             </div>
           ) : (
-            <span className="font-lora text-xs px-2 py-0.5 rounded-full mt-1 inline-block"
-              style={{ background: `${color}22`, color }}>
+            <span className="font-lora text-xs px-2.5 py-0.5 rounded-full mt-1 inline-block border"
+              style={{ background: `${color}12`, color, borderColor: `${color}55` }}>
               {selected.role}
             </span>
           )}
@@ -1758,8 +1844,8 @@ function LoreTab() {
                     openNote.tagIds.map((tid) => {
                       const t = tagById(tid);
                       return t ? (
-                        <span key={tid} className="font-lora text-xs px-2.5 py-1 rounded-full"
-                          style={{ background: `${t.color}20`, color: t.color }}>
+                        <span key={tid} className="font-lora text-xs px-2.5 py-1 rounded-full border"
+                          style={{ background: `${t.color}12`, color: t.color, borderColor: `${t.color}55` }}>
                           {t.label}
                         </span>
                       ) : null;
