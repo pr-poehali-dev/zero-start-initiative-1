@@ -6,6 +6,7 @@ export const books = [
     words: 34210,
     progress: 68,
     lastEdit: "сегодня",
+    goalChars: 300000,
   },
   {
     id: 2,
@@ -14,6 +15,7 @@ export const books = [
     words: 12750,
     progress: 25,
     lastEdit: "вчера",
+    goalChars: 100000,
   },
   {
     id: 3,
@@ -22,8 +24,10 @@ export const books = [
     words: 51800,
     progress: 91,
     lastEdit: "3 дня назад",
+    goalChars: 320000,
   },
 ];
 
 export const totalWords = books.reduce((sum, b) => sum + b.words, 0);
 export const totalChars = Math.round(totalWords * 5.5);
+export const wordsToChars = (words: number) => Math.round(words * 5.5);
