@@ -392,10 +392,10 @@ export default function IdeasTab({ initialTags, initialNotes, onSaveTags, onSave
         {tags.map((t) => (
           <button key={t.id}
             onClick={() => setActiveTag(activeTag === t.id ? null : t.id)}
-            className="font-lora text-xs px-3 py-1.5 rounded-full border transition-all"
+            className="font-lora text-xs px-3 py-1.5 rounded-full border"
             style={activeTag === t.id
               ? { background: t.color, color: "#fff", borderColor: t.color }
-              : { background: `${t.color}18`, color: t.color, borderColor: `${t.color}44` }
+              : { background: "transparent", color: t.color, borderColor: `${t.color}60` }
             }>
             {t.label}
           </button>
