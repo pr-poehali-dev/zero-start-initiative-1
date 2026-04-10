@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 
 interface ManuscriptChapter {
@@ -49,7 +49,7 @@ const DEMO_CHAPTERS: ManuscriptChapter[] = [
 ];
 
 const editorStyles = `
-  .rich-editor { outline: none; font-family: "Times New Roman", Times, serif; font-size: 14pt; line-height: 1.6; min-height: 420px; padding: 2rem 3rem; }
+  .rich-editor { outline: none; font-family: "Times New Roman", Times, serif; font-size: 14pt; line-height: 1.6; min-height: 420px; padding: 2rem 3rem; direction: ltr; unicode-bidi: isolate; }
   .rich-editor h2 { font-family: "Times New Roman", Times, serif; font-size: 16pt; font-weight: bold; margin: 1.5em 0 0.5em; }
   .rich-editor p { margin: 0 0 0.8em; }
   .rich-editor:focus { outline: none; }
@@ -80,8 +80,20 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
   const [editingChTitle, setEditingChTitle] = useState<number | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
   const [copied, setCopied] = useState(false);
+  const [mobileChOpen, setMobileChOpen] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const styleRef = useRef<HTMLStyleElement | null>(null);
+  const mobileDropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (mobileDropRef.current && !mobileDropRef.current.contains(e.target as Node)) {
+        setMobileChOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   if (!styleRef.current && typeof document !== "undefined") {
     const s = document.createElement("style");
@@ -180,8 +192,40 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
       </div>
 
       {view === "chapters" && (
-        <div className="flex gap-4 min-h-[560px]">
-          <div className="w-48 flex-shrink-0 space-y-1">
+        <div className="space-y-3">
+          {/* Mobile: dropdown chapter selector */}
+          <div className="md:hidden" ref={mobileDropRef}>
+            <div className="relative">
+              <button
+                onClick={() => setMobileChOpen((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-card font-lora text-sm"
+              >
+                <span className="truncate">{activeCh ? activeCh.title : "Выберите главу"}</span>
+                <Icon name={mobileChOpen ? "ChevronUp" : "ChevronDown"} size={15} className="text-muted-foreground flex-shrink-0 ml-2" />
+              </button>
+              {mobileChOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 rounded-xl border border-border bg-card shadow-lg z-20 overflow-hidden">
+                  {chapters.map((ch) => (
+                    <button key={ch.id}
+                      onClick={() => { setActiveChId(ch.id); setMobileChOpen(false); }}
+                      className={`w-full flex items-center justify-between px-4 py-3 text-left font-lora text-sm transition-colors ${activeChId === ch.id ? "bg-violet/10 text-violet" : "hover:bg-muted/40"}`}>
+                      <span className="truncate">{ch.title}</span>
+                      {activeChId === ch.id && <Icon name="Check" size={13} className="text-violet flex-shrink-0 ml-2" />}
+                    </button>
+                  ))}
+                  <button onClick={() => { addChapter(); setMobileChOpen(false); }}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-left font-lora text-sm text-violet hover:bg-muted/40 transition-colors border-t border-border">
+                    <Icon name="Plus" size={13} />
+                    Новая глава
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-4 min-h-[560px]">
+          {/* Desktop: sidebar */}
+          <div className="hidden md:block w-48 flex-shrink-0 space-y-1">
             {chapters.map((ch, idx) => (
               <div key={ch.id}
                 className={`group rounded-lg border transition-all ${activeChId === ch.id ? "border-violet/40 bg-violet/5" : "border-transparent hover:border-border"}`}>
@@ -294,6 +338,7 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
                 className="rich-editor flex-1 overflow-y-auto scroll-custom"
                 contentEditable
                 suppressContentEditableWarning
+                dir="ltr"
                 dangerouslySetInnerHTML={{ __html: activeCh.content }}
                 onInput={(e) => updateChContent(activeCh.id, (e.target as HTMLDivElement).innerHTML)}
               />
@@ -304,6 +349,7 @@ export default function ManuscriptTab({ initialText, onSave, bookId }: { initial
               </div>
             </div>
           )}
+          </div>
         </div>
       )}
 
