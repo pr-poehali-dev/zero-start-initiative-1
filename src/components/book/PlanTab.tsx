@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import * as XLSX from "xlsx";
 
 interface PlanEpisode {
   id: number;
@@ -130,6 +131,21 @@ export default function PlanTab({ bookId, initialData, onSave }: { bookId: numbe
     }));
   };
 
+  const exportExcel = () => {
+    const rows: object[] = [];
+    sections.forEach((sec) => {
+      rows.push({ Часть: sec.label, Подзаголовок: sec.subtitle, Эпизод: "", Описание: "", Статус: "" });
+      sec.episodes.forEach((ep) => {
+        rows.push({ Часть: sec.label, Подзаголовок: "", Эпизод: ep.title, Описание: ep.description, Статус: ep.done ? "✓ Готово" : "В работе" });
+      });
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{ wch: 18 }, { wch: 30 }, { wch: 28 }, { wch: 50 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "План");
+    XLSX.writeFile(wb, "план.xlsx");
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3 px-1 mb-1">
@@ -137,6 +153,11 @@ export default function PlanTab({ bookId, initialData, onSave }: { bookId: numbe
           <div className="h-full rounded-full transition-all" style={{ width: `${totalEps ? (doneEps / totalEps) * 100 : 0}%`, background: 'hsl(var(--violet))' }} />
         </div>
         <span className="font-lora text-xs text-muted-foreground">{doneEps} / {totalEps} эпизодов</span>
+        <button onClick={exportExcel}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border font-lora text-xs text-muted-foreground hover:text-violet hover:border-violet/50 transition-colors">
+          <Icon name="Download" size={13} />
+          Excel
+        </button>
       </div>
 
       {sections.map((sec) => (
