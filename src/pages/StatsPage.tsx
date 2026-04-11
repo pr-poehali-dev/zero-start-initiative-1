@@ -30,7 +30,7 @@ export default function StatsPage() {
   const totalChars = realBooks.reduce((s, b) => s + b.words, 0); // words = знаки с пробелами
   const totalWords = charsToWords(totalChars);
 
-  const { bookGoals, history, setGoal } = useGoals(totalChars);
+  const { bookGoals, history, setGoal } = useGoals(totalChars, realBooks);
   const [period, setPeriod] = useState<Period>("week");
   const [metric, setMetric] = useState<Metric>("chars");
   const [editingGoal, setEditingGoal] = useState<number | null>(null);

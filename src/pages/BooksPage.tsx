@@ -34,22 +34,15 @@ interface BookData {
   ideas_notes?: string;
 }
 
-const ORDER_KEY = "scriptorium_book_order";
-
-function loadOrder(): number[] {
-  try { return JSON.parse(localStorage.getItem(ORDER_KEY) || "[]"); } catch { return {}; }
-}
-function saveOrder(ids: number[]) {
-  localStorage.setItem(ORDER_KEY, JSON.stringify(ids));
-}
 
 const SHEETS_PER_CHARS = 40000; // 1 авт. лист = 40 000 знаков с пробелами
 const toSheets = (chars: number) => (chars / SHEETS_PER_CHARS).toFixed(1);
 
 export default function BooksPage() {
   const { books, loading, createBook: apiCreate, updateBook, deleteBook, getBook, recountBooks } = useBooks();
-  const totalCharsForGoals = books.filter(b => b.title !== '[удалено]').reduce((s, b) => s + b.words, 0);
-  const { bookGoals, setGoal } = useGoals(totalCharsForGoals);
+  const visibleBooks = books.filter(b => b.title !== '[удалено]');
+  const totalCharsForGoals = visibleBooks.reduce((s, b) => s + b.words, 0);
+  const { bookGoals, setGoal, reorderBooks } = useGoals(totalCharsForGoals, visibleBooks);
 
   // Пересчёт при первом открытии (один раз на сессию)
   useEffect(() => {
@@ -69,14 +62,14 @@ export default function BooksPage() {
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const [editingGoal, setEditingGoal] = useState<number | null>(null);
   const [goalDraft, setGoalDraft] = useState("");
-  const [bookOrder, setBookOrder] = useState<number[]>(loadOrder);
+  const [localOrder, setLocalOrder] = useState<number[]>([]);
   const [dragOver, setDragOver] = useState<number | null>(null);
 
   const getSortedBooks = (rawBooks: typeof books) => {
     const visible = rawBooks.filter((b) => b.title !== '[удалено]');
-    if (bookOrder.length === 0) return visible;
-    const ordered = bookOrder.map((id) => visible.find((b) => b.id === id)).filter(Boolean) as typeof visible;
-    const rest = visible.filter((b) => !bookOrder.includes(b.id));
+    if (localOrder.length === 0) return visible;
+    const ordered = localOrder.map((id) => visible.find((b) => b.id === id)).filter(Boolean) as typeof visible;
+    const rest = visible.filter((b) => !localOrder.includes(b.id));
     return [...ordered, ...rest];
   };
 
@@ -95,8 +88,8 @@ export default function BooksPage() {
     const toIdx = ids.indexOf(targetId);
     ids.splice(fromIdx, 1);
     ids.splice(toIdx, 0, draggedId);
-    setBookOrder(ids);
-    saveOrder(ids);
+    setLocalOrder(ids);
+    reorderBooks(ids);
     setDragOver(null);
   };
 

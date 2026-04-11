@@ -250,7 +250,7 @@ def handler(event: dict, context) -> dict:
         # ── list ──
         if action == 'list':
             cur.execute(
-                "SELECT id, title, genre, words, created_at, updated_at FROM books WHERE user_id=%s ORDER BY updated_at DESC",
+                "SELECT id, title, genre, words, created_at, updated_at, sort_order FROM books WHERE user_id=%s AND title != '[удалено]' ORDER BY sort_order ASC, updated_at DESC",
                 (user_id,)
             )
             rows = cur.fetchall()
@@ -259,7 +259,7 @@ def handler(event: dict, context) -> dict:
                 cur.execute(
                     """INSERT INTO books (user_id, title, genre, words, manuscript, synopsis, characters, plan, lore_tags, lore_notes)
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                       RETURNING id, title, genre, words, created_at, updated_at""",
+                       RETURNING id, title, genre, words, created_at, updated_at, sort_order""",
                     (user_id, 'Маленький принц', 'Аллегорическая повесть', count_chars(DEMO_MANUSCRIPT),
                      DEMO_MANUSCRIPT, DEMO_SYNOPSIS,
                      DEMO_CHARACTERS, DEMO_PLAN,
@@ -269,7 +269,7 @@ def handler(event: dict, context) -> dict:
                 conn.commit()
                 rows = [row]
             books = [{'id': r[0], 'title': r[1], 'genre': r[2], 'words': r[3],
-                      'created_at': str(r[4]), 'updated_at': str(r[5])} for r in rows]
+                      'created_at': str(r[4]), 'updated_at': str(r[5]), 'sort_order': r[6]} for r in rows]
             return {'statusCode': 200, 'headers': CORS, 'body': {'books': books}}
 
         # ── get ──
@@ -362,6 +362,17 @@ def handler(event: dict, context) -> dict:
             cur.execute("SELECT id, title, words FROM books WHERE user_id=%s AND title != '[удалено]'", (user_id,))
             updated = [{'id': r[0], 'title': r[1], 'chars': r[2]} for r in cur.fetchall()]
             return {'statusCode': 200, 'headers': CORS, 'body': {'updated': updated}}
+
+        # ── reorder ── сохранение порядка книг
+        if action == 'reorder':
+            ordered_ids = body.get('ordered_ids', [])
+            for i, book_id in enumerate(ordered_ids):
+                cur.execute(
+                    "UPDATE books SET sort_order=%s WHERE id=%s AND user_id=%s",
+                    (i, book_id, user_id)
+                )
+            conn.commit()
+            return {'statusCode': 200, 'headers': CORS, 'body': {'ok': True}}
 
         # ── delete ──
         if action == 'delete':
