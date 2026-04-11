@@ -299,35 +299,6 @@ export default function CharactersTab({ bookId, initialData, onSave }: { bookId:
         <div className="space-y-4">
           <div className="p-5 rounded-xl border border-border bg-card">
             <div className="flex items-start gap-5 mb-5">
-              <div className="flex-shrink-0">
-                {draft.photo ? (
-                  <div className="relative group w-24 h-32 rounded-xl overflow-hidden border border-border">
-                    <img src={draft.photo} alt={draft.name} className="w-full h-full object-cover" />
-                    {editing && (
-                      <button
-                        onClick={() => setDraft({ ...draft, photo: null })}
-                        className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                        <Icon name="Trash2" size={16} className="text-white" />
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <label className={`w-24 h-32 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${editing ? "border-border hover:border-violet" : "border-border"}`}>
-                    {editing && (
-                      <input type="file" accept="image/*" className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          const reader = new FileReader();
-                          reader.onload = (ev) => setDraft({ ...draft, photo: ev.target?.result as string });
-                          reader.readAsDataURL(file);
-                        }} />
-                    )}
-                    <Icon name="ImagePlus" size={20} className={editing ? "text-muted-foreground" : "text-muted-foreground/40"} />
-                    {editing && <span className="font-lora text-[10px] text-muted-foreground text-center leading-tight px-1">Загрузить фото</span>}
-                  </label>
-                )}
-              </div>
               <div className="flex-1">
                 <label className="font-lora text-xs text-muted-foreground block mb-2">Свободное описание</label>
                 {editing ? (
