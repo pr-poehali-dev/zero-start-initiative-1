@@ -114,7 +114,11 @@ export default function BooksPage() {
   const openBook = async (id: number) => {
     setLoadingBook(true);
     setSelectedBook(id);
-    const full = await getBook(id);
+    let full = await getBook(id);
+    if (!full) {
+      await new Promise((r) => setTimeout(r, 1500));
+      full = await getBook(id);
+    }
     setSelectedBookFull(full);
     setLoadingBook(false);
   };
@@ -161,18 +165,30 @@ export default function BooksPage() {
   if (selectedBook !== null) {
     const bookMeta = books.find((b) => b.id === selectedBook);
     const book: BookData = selectedBookFull ?? { id: selectedBook, title: bookMeta?.title ?? "", genre: bookMeta?.genre ?? "", words: bookMeta?.words ?? 0 };
+    const loadFailed = !loadingBook && !selectedBookFull;
     return (
-      <BookDetail
-        book={book}
-        tab={activeTab}
-        onTabChange={setActiveTab}
-        onBack={() => { setSelectedBook(null); setSelectedBookFull(null); }}
-        onUpdate={(fields) => handleUpdate(fields)}
-        onDelete={() => handleDelete(selectedBook)}
-        loading={loadingBook}
-        goalChars={bookGoals[book.id]}
-        onSetGoal={(chars) => setGoal(book.id, chars)}
-      />
+      <>
+        {loadFailed && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-destructive/10 border border-destructive/30 text-destructive rounded-xl px-5 py-3 flex items-center gap-3 font-lora text-sm shadow-lg">
+            Не удалось загрузить данные книги
+            <button onClick={() => openBook(selectedBook)}
+              className="underline hover:no-underline font-medium">
+              Попробовать снова
+            </button>
+          </div>
+        )}
+        <BookDetail
+          book={book}
+          tab={activeTab}
+          onTabChange={setActiveTab}
+          onBack={() => { setSelectedBook(null); setSelectedBookFull(null); }}
+          onUpdate={(fields) => handleUpdate(fields)}
+          onDelete={() => handleDelete(selectedBook)}
+          loading={loadingBook}
+          goalChars={bookGoals[book.id]}
+          onSetGoal={(chars) => setGoal(book.id, chars)}
+        />
+      </>
     );
   }
 
