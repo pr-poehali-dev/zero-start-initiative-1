@@ -539,12 +539,12 @@ function BookDetail({
         </div>
       ) : (
         <div className="animate-fade-in" key={tab}>
-          {tab === "manuscript" && <ManuscriptTab key={book.id} bookId={book.id} initialText={book.manuscript ?? ""} onSave={(t) => onUpdate({ manuscript: t })} />}
-          {tab === "synopsis" && <SynopsisTab initialText={book.synopsis ?? ""} onSave={(t) => onUpdate({ synopsis: t })} />}
-          {tab === "characters" && <CharactersTab key={book.id} bookId={book.id} initialData={book.characters ?? ""} onSave={(v) => onUpdate({ characters: v })} />}
-          {tab === "plan" && <PlanTab key={book.id} bookId={book.id} initialData={book.plan ?? ""} onSave={(v) => onUpdate({ plan: v })} />}
-          {tab === "lore" && <LoreTab key={book.id} initialTags={book.lore_tags ?? ""} initialNotes={book.lore_notes ?? ""} onSaveTags={(v) => onUpdate({ lore_tags: v })} onSaveNotes={(v) => onUpdate({ lore_notes: v })} />}
-          {tab === "ideas" && <IdeasTab key={book.id} initialTags={book.ideas_tags ?? ""} initialNotes={book.ideas_notes ?? ""} onSaveTags={(v) => onUpdate({ ideas_tags: v })} onSaveNotes={(v) => onUpdate({ ideas_notes: v })} />}
+          {tab === "manuscript" && <ManuscriptTab key={`${book.id}-${!!book.manuscript}`} bookId={book.id} initialText={book.manuscript ?? ""} onSave={(t) => onUpdate({ manuscript: t })} />}
+          {tab === "synopsis" && <SynopsisTab key={`${book.id}-${!!book.synopsis}`} initialText={book.synopsis ?? ""} onSave={(t) => onUpdate({ synopsis: t })} />}
+          {tab === "characters" && <CharactersTab key={`${book.id}-${!!book.characters}`} bookId={book.id} initialData={book.characters ?? ""} onSave={(v) => onUpdate({ characters: v })} />}
+          {tab === "plan" && <PlanTab key={`${book.id}-${!!book.plan}`} bookId={book.id} initialData={book.plan ?? ""} onSave={(v) => onUpdate({ plan: v })} />}
+          {tab === "lore" && <LoreTab key={`${book.id}-${!!book.lore_notes}`} initialTags={book.lore_tags ?? ""} initialNotes={book.lore_notes ?? ""} onSaveTags={(v) => onUpdate({ lore_tags: v })} onSaveNotes={(v) => onUpdate({ lore_notes: v })} />}
+          {tab === "ideas" && <IdeasTab key={`${book.id}-${!!book.ideas_notes}`} initialTags={book.ideas_tags ?? ""} initialNotes={book.ideas_notes ?? ""} onSaveTags={(v) => onUpdate({ ideas_tags: v })} onSaveNotes={(v) => onUpdate({ ideas_notes: v })} />}
         </div>
       )}
 

@@ -44,7 +44,11 @@ export default function CharactersTab({ bookId, initialData, onSave }: { bookId:
     return [];
   };
   const saveChars = (chars: Character[]) => {
-    onSave(JSON.stringify(chars));
+    const sanitized = chars.map((c) => ({
+      ...c,
+      photo: c.photo?.startsWith('data:') ? null : c.photo,
+    }));
+    onSave(JSON.stringify(sanitized));
   };
 
   const [characters, setCharacters] = useState<Character[]>(parseInitial);
