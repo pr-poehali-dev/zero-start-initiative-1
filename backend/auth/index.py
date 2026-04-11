@@ -1,4 +1,5 @@
 """Авторизация: регистрация, вход, получение профиля"""
+
 import json
 import os
 import hashlib
