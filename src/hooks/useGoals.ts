@@ -34,25 +34,6 @@ function loadHistoryLocal(): Record<string, number> {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "{}"); } catch { return {}; }
 }
 
-// Считает streak: сколько дней подряд (включая сегодня) есть хоть какой-то прирост
-export function calcStreak(history: Record<string, number>): number {
-  const today = new Date();
-  let streak = 0;
-  for (let i = 0; i < 365; i++) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    if ((history[key] || 0) > 0) {
-      streak++;
-    } else if (i > 0) {
-      // Пропустили день — цепочка прервана
-      break;
-    }
-    // i === 0 (сегодня) с нулём — продолжаем смотреть вчера
-  }
-  return streak;
-}
-
 export function useGoals(totalChars: number, books: BookMeta[] = []) {
   const [bookGoals, setBookGoals] = useState<Record<number, number>>(loadGoalsLocal);
   const [history, setHistory] = useState<Record<string, number>>(loadHistoryLocal);
@@ -75,10 +56,10 @@ export function useGoals(totalChars: number, books: BookMeta[] = []) {
         setBookGoals(goals);
         localStorage.setItem(GOALS_KEY, JSON.stringify(goals));
       }
-      // Всегда берём историю с сервера (там правильные данные после сброса)
-      const serverHistory = histData.history || {};
-      setHistory(serverHistory);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(serverHistory));
+      if (histData.history && Object.keys(histData.history).length > 0) {
+        setHistory(histData.history);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(histData.history));
+      }
       setSynced(true);
     }).catch(() => {
       setSynced(true);

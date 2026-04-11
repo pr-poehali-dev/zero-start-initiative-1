@@ -1,5 +1,5 @@
 import { useBooks } from "@/hooks/useBooks";
-import { useGoals, calcStreak } from "@/hooks/useGoals";
+import { DEMO_STREAK } from "@/data/demoBook";
 
 type Page = "home" | "books" | "stats" | "profile" | "help";
 
@@ -24,10 +24,9 @@ export default function HomePage({ onNavigate }: Props) {
   const quote = quotes[Math.floor(Date.now() / 86400000) % quotes.length];
 
   const realBooks = books.filter((b) => b.title !== "[удалено]");
-  const totalChars = realBooks.reduce((s, b) => s + b.words, 0);
+  const totalChars = realBooks.reduce((s, b) => s + b.words, 0); // words хранит знаки с пробелами
   const recentBooks = realBooks.slice(0, 3);
-  const { history } = useGoals(totalChars, realBooks);
-  const streak = calcStreak(history);
+  const streak = realBooks.length > 0 ? DEMO_STREAK : 0;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10 pb-24 md:pb-10">
