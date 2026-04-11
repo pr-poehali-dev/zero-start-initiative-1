@@ -1,0 +1,12 @@
+{
+  "tests": [
+    {
+      "name": "Unauthorized request",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "get_goals"},
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    }
+  ]
+}

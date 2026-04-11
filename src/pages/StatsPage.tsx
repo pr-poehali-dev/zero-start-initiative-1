@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useBooks } from "@/hooks/useBooks";
+import { useGoals } from "@/hooks/useGoals";
 import Icon from "@/components/ui/icon";
 
 const SHEETS_PER_CHARS = 40000;
@@ -19,39 +20,6 @@ const BOOK_COLORS = [
 type Period = "week" | "month" | "year";
 type Metric = "words" | "chars";
 
-const HISTORY_KEY = "scriptorium_writing_history"; // { "YYYY-MM-DD": chars_with_spaces }
-const PREV_CHARS_KEY = "scriptorium_prev_total_chars";
-
-function todayKey(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function loadHistory(): Record<string, number> {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "{}"); } catch { return {}; }
-}
-
-function saveHistory(h: Record<string, number>) {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
-}
-
-// Записываем разницу знаков за сегодня
-function recordTodayChars(totalChars: number): Record<string, number> {
-  const prev = parseInt(localStorage.getItem(PREV_CHARS_KEY) || "0", 10);
-  const diff = totalChars - prev;
-  const history = loadHistory();
-  const key = todayKey();
-
-  if (prev === 0 && totalChars > 0) {
-    // Первый запуск — только запоминаем базу, ничего не пишем в историю
-    localStorage.setItem(PREV_CHARS_KEY, String(totalChars));
-  } else if (diff > 0) {
-    history[key] = (history[key] || 0) + diff;
-    saveHistory(history);
-    localStorage.setItem(PREV_CHARS_KEY, String(totalChars));
-  }
-  return history;
-}
-
 // words в БД хранит знаки с пробелами напрямую
 function charsToWords(chars: number) { return Math.round(chars / 6); }
 
@@ -62,40 +30,11 @@ export default function StatsPage() {
   const totalChars = realBooks.reduce((s, b) => s + b.words, 0); // words = знаки с пробелами
   const totalWords = charsToWords(totalChars);
 
-  const [history, setHistory] = useState<Record<string, number>>({});
+  const { bookGoals, history, setGoal } = useGoals(totalChars);
   const [period, setPeriod] = useState<Period>("week");
   const [metric, setMetric] = useState<Metric>("chars");
-  const [bookGoals, setBookGoals] = useState<Record<number, number>>(() => {
-    try { return JSON.parse(localStorage.getItem("scriptorium_book_goals") || "{}"); } catch { return {}; }
-  });
   const [editingGoal, setEditingGoal] = useState<number | null>(null);
   const [goalDraft, setGoalDraft] = useState("");
-
-  useEffect(() => {
-    if (totalChars > 0) {
-      // Чистим ошибочную запись первого запуска: если история за сегодня == totalChars и prev тоже == totalChars
-      const MIGRATION_KEY = "scriptorium_history_cleaned_v2";
-      if (!localStorage.getItem(MIGRATION_KEY)) {
-        const h = loadHistory();
-        const key = todayKey();
-        if (h[key] && h[key] >= totalChars * 0.95) {
-          delete h[key];
-          saveHistory(h);
-        }
-        localStorage.setItem(MIGRATION_KEY, "1");
-      }
-      const h = recordTodayChars(totalChars);
-      setHistory(h);
-    } else {
-      setHistory(loadHistory());
-    }
-  }, [totalChars]);
-
-  const setGoal = (bookId: number, chars: number) => {
-    const updated = { ...bookGoals, [bookId]: chars };
-    setBookGoals(updated);
-    localStorage.setItem("scriptorium_book_goals", JSON.stringify(updated));
-  };
 
   const toDisplay = (chars: number) => metric === "words" ? charsToWords(chars) : chars;
   const label = metric === "words" ? "слов" : "зн.";

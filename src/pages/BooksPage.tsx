@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { useBooks, BookMeta, BookFull } from "@/hooks/useBooks";
+import { useGoals } from "@/hooks/useGoals";
 import ManuscriptTab from "@/components/book/ManuscriptTab";
 import CharactersTab from "@/components/book/CharactersTab";
 import PlanTab from "@/components/book/PlanTab";
@@ -33,15 +34,8 @@ interface BookData {
   ideas_notes?: string;
 }
 
-const GOALS_KEY = "scriptorium_book_goals";
 const ORDER_KEY = "scriptorium_book_order";
 
-function loadGoals(): Record<number, number> {
-  try { return JSON.parse(localStorage.getItem(GOALS_KEY) || "{}"); } catch { return {}; }
-}
-function saveGoalsToStorage(g: Record<number, number>) {
-  localStorage.setItem(GOALS_KEY, JSON.stringify(g));
-}
 function loadOrder(): number[] {
   try { return JSON.parse(localStorage.getItem(ORDER_KEY) || "[]"); } catch { return {}; }
 }
@@ -54,6 +48,8 @@ const toSheets = (chars: number) => (chars / SHEETS_PER_CHARS).toFixed(1);
 
 export default function BooksPage() {
   const { books, loading, createBook: apiCreate, updateBook, deleteBook, getBook, recountBooks } = useBooks();
+  const totalCharsForGoals = books.filter(b => b.title !== '[удалено]').reduce((s, b) => s + b.words, 0);
+  const { bookGoals, setGoal } = useGoals(totalCharsForGoals);
 
   // Пересчёт при первом открытии (один раз на сессию)
   useEffect(() => {
@@ -71,17 +67,10 @@ export default function BooksPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newGenre, setNewGenre] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
-  const [bookGoals, setBookGoals] = useState<Record<number, number>>(loadGoals);
   const [editingGoal, setEditingGoal] = useState<number | null>(null);
   const [goalDraft, setGoalDraft] = useState("");
   const [bookOrder, setBookOrder] = useState<number[]>(loadOrder);
   const [dragOver, setDragOver] = useState<number | null>(null);
-
-  const setGoal = (bookId: number, chars: number) => {
-    const updated = { ...bookGoals, [bookId]: chars };
-    setBookGoals(updated);
-    saveGoalsToStorage(updated);
-  };
 
   const getSortedBooks = (rawBooks: typeof books) => {
     const visible = rawBooks.filter((b) => b.title !== '[удалено]');
