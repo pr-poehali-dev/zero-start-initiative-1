@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 
 const AUTH_URL = "https://functions.poehali.dev/abccaa69-33e5-4e29-bbbd-633c65210599";
 const TOKEN_KEY = "scriptorium_token";
+const USER_CACHE_KEY = "scriptorium_user_cache";
 
 interface User {
   id: number;
@@ -33,10 +34,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
       .then((r) => r.json())
       .then((data) => {
-        if (data.user) setUser(data.user);
-        else localStorage.removeItem(TOKEN_KEY);
+        if (data.user) {
+          setUser(data.user);
+          localStorage.setItem(USER_CACHE_KEY, JSON.stringify(data.user));
+        } else {
+          // Сервер явно отклонил токен — чистим
+          localStorage.removeItem(TOKEN_KEY);
+          localStorage.removeItem(USER_CACHE_KEY);
+        }
       })
-      .catch(() => localStorage.removeItem(TOKEN_KEY))
+      .catch(() => {
+        // Сетевая ошибка — восстанавливаем из кэша, токен не трогаем
+        const cached = localStorage.getItem(USER_CACHE_KEY);
+        if (cached) setUser(JSON.parse(cached));
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -49,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Ошибка входа");
     localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(USER_CACHE_KEY, JSON.stringify(data.user));
     setUser(data.user);
   };
 
@@ -61,11 +73,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Ошибка регистрации");
     localStorage.setItem(TOKEN_KEY, data.token);
+    localStorage.setItem(USER_CACHE_KEY, JSON.stringify(data.user));
     setUser(data.user);
   };
 
   const logout = () => {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_CACHE_KEY);
     setUser(null);
   };
 
